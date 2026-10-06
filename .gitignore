@@ -1,0 +1,21 @@
+# Build output
+bin/
+obj/
+artifacts/
+
+# Scratch and test-run output (builds, screenshots, probes)
+tmp/
+TestResults/
+*.log
+
+# IDE / user files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+
+# Documents under review must never be committed (they may be confidential)
+*.docx
+*.doc
+!tests/**/*.docx.keep

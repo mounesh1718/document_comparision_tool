@@ -1,0 +1,203 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DocumentChecker.Engine.MainWindow"
+        Title="Document Checker | Reference Review"
+        Width="1500"
+        Height="900"
+        MinWidth="1000"
+        MinHeight="650"
+        FontFamily="Segoe UI"
+        Background="#EFF3F8">
+  <Window.Styles>
+    <Style Selector="Button">
+      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="Background" Value="#F1F5F9" />
+      <Setter Property="Foreground" Value="#172B4D" />
+      <Setter Property="CornerRadius" Value="6" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="#2457C5" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="ListBoxItem">
+      <Setter Property="Padding" Value="4" />
+    </Style>
+  </Window.Styles>
+  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="18" RowSpacing="12" Background="#EFF3F8">
+    <Grid ColumnDefinitions="*,Auto">
+      <StackPanel Spacing="3">
+        <TextBlock FontSize="24" FontWeight="SemiBold" Foreground="#172B4D" Text="Document review" />
+        <TextBlock Foreground="#526171" Text="Check the Current document against your approved Reference." />
+      </StackPanel>
+      <Border Grid.Column="1" Background="#E6EEF9" CornerRadius="6" Padding="12,8" VerticalAlignment="Center">
+        <TextBlock Foreground="#2457C5" FontSize="12" Text="LOCAL PROCESSING  /  READ ONLY" />
+      </Border>
+    </Grid>
+    <Border Grid.Row="1" Background="White" BorderBrush="#D5DAE1" BorderThickness="1" CornerRadius="8" Padding="12">
+      <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="10">
+      <Button Grid.Column="0" Click="SelectReference_Click">Reference DOCX</Button>
+      <TextBlock x:Name="ReferencePathText" Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      <Button Grid.Column="2" Click="SelectCurrent_Click">Current DOCX</Button>
+      <TextBlock x:Name="CurrentPathText" Grid.Column="3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+      <Button x:Name="CompareButton" Classes="primary" Grid.Column="4" Click="Compare_Click" IsEnabled="False">Compare documents</Button>
+      </Grid>
+    </Border>
+
+    <Border Grid.Row="2" Background="#26374A" CornerRadius="8" Padding="12,9">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+        <TextBlock x:Name="StatusText" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" Text="Select a Reference DOCX and a Current DOCX." />
+        <Button x:Name="NextReviewButton" Grid.Column="1" Click="NextReview_Click" IsVisible="False" Background="#F59E0B" Foreground="#1F2937" FontWeight="SemiBold"
+                ToolTip.Tip="Go to each item that needs review. Amber marks show them in the documents and beside the scroll bars.">Next to review</Button>
+        <Button Grid.Column="2" Click="PreviousDifference_Click">Previous</Button>
+        <Button Grid.Column="3" Click="NextDifference_Click">Next</Button>
+        <Button x:Name="GeneratePdfButton" Grid.Column="4" Click="GeneratePdf_Click" IsEnabled="False">Generate PDF Report</Button>
+        <Button Grid.Column="5" Click="ZoomOut_Click">Zoom -</Button>
+        <TextBlock x:Name="ZoomText" Grid.Column="6" Foreground="White" VerticalAlignment="Center" Text="100%" />
+        <Button Grid.Column="7" Click="ZoomIn_Click">Zoom +</Button>
+        <Button x:Name="HighlightToggleButton" Grid.Column="8" Click="HighlightToggle_Click" ToolTip.Tip="Hide the change markers to read the original content. Changes remain clickable.">Hide markers</Button>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="3" ColumnDefinitions="*,*,380" ColumnSpacing="12">
+      <Border Background="White" BorderBrush="#C9CDD2" BorderThickness="1" CornerRadius="8" Padding="0">
+        <Grid RowDefinitions="Auto,*">
+          <Border Background="#F4F6F8" BorderBrush="#D5DAE1" BorderThickness="0,0,0,1" Padding="14,10">
+            <StackPanel Spacing="2">
+              <TextBlock FontSize="14" Foreground="#9F1239" FontWeight="Bold" Text="REFERENCE / SOURCE OF TRUTH" />
+              <TextBlock x:Name="ReferenceDocumentName" Foreground="#526171" Text="No document selected" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Border>
+          <Grid Grid.Row="1" ColumnDefinitions="*,14">
+            <ScrollViewer x:Name="ReferenceScrollViewer"
+                          Background="#EEF1F4"
+                          VerticalScrollBarVisibility="Visible"
+                          HorizontalScrollBarVisibility="Visible"
+                          ScrollChanged="ReferenceScrollViewer_ScrollChanged">
+              <Border x:Name="ReferencePageSurface" Width="900" HorizontalAlignment="Left" Background="White" BorderBrush="#DDE2E7" BorderThickness="1" Margin="18" Padding="24" BoxShadow="0 2 8 0 #22000000">
+                <StackPanel x:Name="ReferenceDocumentPanel" Spacing="12" />
+              </Border>
+            </ScrollViewer>
+            <Canvas x:Name="ReferenceOverview" Grid.Column="1" Background="#E2E8F0" ClipToBounds="True"
+                    ToolTip.Tip="Where the changes are in this document. Amber = needs review. Click a mark to jump to it." />
+          </Grid>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="1" Background="White" BorderBrush="#C9CDD2" BorderThickness="1" CornerRadius="8" Padding="0">
+        <Grid RowDefinitions="Auto,*">
+          <Border Background="#F4F6F8" BorderBrush="#D5DAE1" BorderThickness="0,0,0,1" Padding="14,10">
+            <StackPanel Spacing="2">
+              <TextBlock FontSize="14" Foreground="#166534" FontWeight="Bold" Text="CURRENT / UNDER REVIEW" />
+              <TextBlock x:Name="CurrentDocumentName" Foreground="#526171" Text="No document selected" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+          </Border>
+          <Grid Grid.Row="1" ColumnDefinitions="*,14">
+            <ScrollViewer x:Name="CurrentScrollViewer"
+                          Background="#EEF1F4"
+                          VerticalScrollBarVisibility="Visible"
+                          HorizontalScrollBarVisibility="Visible"
+                          ScrollChanged="CurrentScrollViewer_ScrollChanged">
+              <Border x:Name="CurrentPageSurface" Width="900" HorizontalAlignment="Left" Background="White" BorderBrush="#DDE2E7" BorderThickness="1" Margin="18" Padding="24" BoxShadow="0 2 8 0 #22000000">
+                <StackPanel x:Name="CurrentDocumentPanel" Spacing="12" />
+              </Border>
+            </ScrollViewer>
+            <Canvas x:Name="CurrentOverview" Grid.Column="1" Background="#E2E8F0" ClipToBounds="True"
+                    ToolTip.Tip="Where the changes are in this document. Amber = needs review. Click a mark to jump to it." />
+          </Grid>
+        </Grid>
+      </Border>
+
+      <Border Grid.Column="2" Background="White" BorderBrush="#C9CDD2" BorderThickness="1" CornerRadius="8" Padding="12">
+      <Grid RowDefinitions="Auto,*,2*" RowSpacing="8">
+        <StackPanel Spacing="6">
+        <Grid ColumnDefinitions="*,Auto">
+          <TextBlock FontSize="14" FontWeight="Bold" Text="REVIEW FINDINGS" />
+          <TextBlock x:Name="DifferenceCountText" Grid.Column="1" Foreground="#526171" Text="0 changes" />
+        </Grid>
+        <ComboBox x:Name="FindingFilter" HorizontalAlignment="Stretch" SelectionChanged="FindingFilter_SelectionChanged" SelectedIndex="0">
+          <ComboBoxItem>All findings</ComboBoxItem>
+          <ComboBoxItem>Missing or added content</ComboBoxItem>
+          <ComboBoxItem>Table values and structure</ComboBoxItem>
+          <ComboBoxItem>Images and recognized text</ComboBoxItem>
+          <ComboBoxItem>Needs review</ComboBoxItem>
+        </ComboBox>
+        <TextBlock x:Name="SelectionScopeText" Text="All changes · click a highlighted value to focus" TextWrapping="Wrap" Foreground="#526171" FontSize="12" />
+        <Button x:Name="ShowAllChangesButton" Click="ShowAllChanges_Click" IsVisible="False" HorizontalAlignment="Left" Padding="8,4">Show all changes</Button>
+        </StackPanel>
+        <ListBox x:Name="DifferenceList"
+                 Grid.Row="1"
+                 SelectionChanged="DifferenceList_SelectionChanged"
+                 Background="#F8FAFC"
+                 ScrollViewer.VerticalScrollBarVisibility="Visible"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+          <ListBox.ItemTemplate>
+            <DataTemplate>
+              <Border Margin="4" Padding="8" Background="White" BorderBrush="#DCE3EA" BorderThickness="1" CornerRadius="5">
+                <StackPanel Spacing="3">
+                  <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Operation}" />
+                  <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#1E40AF" TextWrapping="Wrap" Text="{Binding TransitionAndCount}" />
+                  <TextBlock FontSize="11" Foreground="#526171" TextWrapping="Wrap" Text="{Binding LineDescription}" />
+                  <TextBlock FontSize="14" Foreground="#9F1239" TextWrapping="Wrap" Text="{Binding Before}" />
+                  <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#166534" TextWrapping="Wrap" Text="{Binding After}" />
+                </StackPanel>
+              </Border>
+            </DataTemplate>
+          </ListBox.ItemTemplate>
+        </ListBox>
+        <Border Grid.Row="2" Background="#F4F6F8" CornerRadius="6" Padding="12">
+          <ScrollViewer x:Name="DetailScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel Spacing="7">
+            <TextBlock FontWeight="Bold" Text="WHAT CHANGED" />
+            <TextBlock x:Name="DetailOperationText" FontWeight="SemiBold" Foreground="#1E40AF" TextWrapping="Wrap" />
+            <TextBlock x:Name="DetailConfidenceText" FontWeight="Bold" TextWrapping="Wrap" />
+            <TextBlock x:Name="DetailSourceTruthText" Foreground="#334155" TextWrapping="Wrap" />
+            <Grid x:Name="DetailContentKindGrid" ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="False">
+              <TextBlock x:Name="DetailReferenceContentKindText" Foreground="#9F1239" FontWeight="SemiBold" TextWrapping="Wrap" />
+              <TextBlock x:Name="DetailCurrentContentKindText" Grid.Column="1" Foreground="#166534" FontWeight="SemiBold" TextWrapping="Wrap" />
+            </Grid>
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
+            <Border Background="#FFF1F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="4" Padding="7">
+              <StackPanel Spacing="2">
+                <TextBlock FontSize="11" FontWeight="Bold" Foreground="#9F1239" Text="REFERENCE — REQUIRED" />
+                <SelectableTextBlock x:Name="DetailReferenceText" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <Border x:Name="DetailReferenceImageFrame" IsVisible="False" BorderBrush="#E11D48" BorderThickness="2" CornerRadius="3" Padding="2" HorizontalAlignment="Left">
+                  <Image x:Name="DetailReferenceImage" IsVisible="False" MaxHeight="90" Stretch="Uniform" HorizontalAlignment="Left" />
+                </Border>
+              </StackPanel>
+            </Border>
+            <Border Grid.Column="1" Background="#F0FDF4" BorderBrush="#86EFAC" BorderThickness="1" CornerRadius="4" Padding="7">
+              <StackPanel Spacing="2">
+                <TextBlock FontSize="11" FontWeight="Bold" Foreground="#166534" Text="CURRENT — FOUND" />
+                <SelectableTextBlock x:Name="DetailCurrentText" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
+                <Border x:Name="DetailCurrentImageFrame" IsVisible="False" BorderBrush="#16A34A" BorderThickness="2" CornerRadius="3" Padding="2" HorizontalAlignment="Left">
+                  <Image x:Name="DetailCurrentImage" IsVisible="False" MaxHeight="90" Stretch="Uniform" HorizontalAlignment="Left" />
+                </Border>
+              </StackPanel>
+            </Border>
+            </Grid>
+            <TextBlock FontWeight="SemiBold" Text="Where" />
+            <TextBlock x:Name="DetailLocationText" TextWrapping="Wrap" />
+            <Expander x:Name="DetailMoreExpander" Header="More details" HorizontalAlignment="Stretch">
+              <StackPanel Spacing="6">
+              <TextBlock x:Name="DetailCategoryText" TextWrapping="Wrap" />
+              <TextBlock x:Name="DetailActionText" Foreground="#334155" TextWrapping="Wrap" />
+              <TextBlock x:Name="DetailRepresentationText" TextWrapping="Wrap" IsVisible="False" />
+              <TextBlock x:Name="DetailPageNoteText" FontSize="11" Foreground="#64748B" TextWrapping="Wrap" IsVisible="False" />
+              <TextBlock x:Name="DetailReviewText" Foreground="#92400E" TextWrapping="Wrap" IsVisible="False" />
+              <SelectableTextBlock x:Name="DetailContextText" TextWrapping="Wrap" FontSize="12" />
+              </StackPanel>
+            </Expander>
+          </StackPanel>
+          </ScrollViewer>
+        </Border>
+      </Grid>
+      </Border>
+    </Grid>
+
+    <Expander Grid.Row="4" Header="Comparison coverage and review guidance" HorizontalAlignment="Stretch">
+      <TextBlock x:Name="CoverageText" Foreground="#526171" FontSize="12" TextWrapping="Wrap"
+                 Text="Body text, headers, footers, footnotes, endnotes, direct formatting, basic tables and embedded images are checked. Page-number and date fields in headers and footers are compared as fields, not as their printed values. Inherited styles, complete page layout and unsupported Word parts are not fully verified. OCR values need review. Only identical file hashes establish an exact file match." />
+    </Expander>
+  </Grid>
+</Window>
