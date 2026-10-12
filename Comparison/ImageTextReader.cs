@@ -15,15 +15,93 @@ public interface IImageTextReader
     ImageTextResult Read(byte[] imageData);
 }
 
+/// <summary>The text recognition built into this operating system: Windows OCR on Windows, Apple Vision on macOS.</summary>
+public sealed class SystemImageTextReader : IImageTextReader
+{
+    private readonly IImageTextReader _reader = OperatingSystem.IsWindows() ? new WindowsImageTextReader()
+        : OperatingSystem.IsMacOS() ? new MacImageTextReader()
+        : new UnavailableImageTextReader();
+
+    public ImageTextResult Read(byte[] imageData) => _reader.Read(imageData);
+
+    private sealed class UnavailableImageTextReader : IImageTextReader
+    {
+        public ImageTextResult Read(byte[] imageData) =>
+            new([], "Image text recognition needs Windows or macOS. Review the image crops.");
+    }
+}
+
 /// <summary>Runs the Windows OCR runtime locally through its Windows PowerShell host.</summary>
-public sealed class WindowsImageTextReader : IImageTextReader
+public sealed class WindowsImageTextReader : LocalImageTextReader
+{
+    protected override bool IsAvailable => OperatingSystem.IsWindows();
+    protected override bool ReturnsNormalizedBoxes => false;
+
+    protected override ProcessStartInfo CreateStartInfo()
+    {
+        var start = new ProcessStartInfo
+        {
+            FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe")
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-NonInteractive");
+        start.ArgumentList.Add("-EncodedCommand");
+        start.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes(ReadScript("ReadImageText.ps1"))));
+        return start;
+    }
+
+    protected override void WriteImage(Process process, byte[] png) =>
+        process.StandardInput.WriteLine(Convert.ToBase64String(png));
+}
+
+/// <summary>
+/// Runs Apple's Vision text recognition locally through macOS's built-in JavaScript for Automation (osascript),
+/// so nothing has to be installed. Vision reports word boxes normalized to the image, origin bottom-left.
+/// </summary>
+public sealed class MacImageTextReader : LocalImageTextReader
+{
+    protected override bool IsAvailable => OperatingSystem.IsMacOS();
+    protected override bool ReturnsNormalizedBoxes => true;
+
+    protected override ProcessStartInfo CreateStartInfo()
+    {
+        var start = new ProcessStartInfo { FileName = "/usr/bin/osascript" };
+        start.ArgumentList.Add("-l");
+        start.ArgumentList.Add("JavaScript");
+        start.ArgumentList.Add("-e");
+        start.ArgumentList.Add(ReadScript("ReadImageTextMac.js"));
+        return start;
+    }
+
+    protected override void WriteImage(Process process, byte[] png)
+    {
+        process.StandardInput.BaseStream.Write(png);
+        process.StandardInput.BaseStream.Flush();
+    }
+}
+
+/// <summary>
+/// Shared work for the operating-system OCR engines: the image is enlarged for small text, passed to a local
+/// helper process, and the recognized words are returned in the original image's pixel coordinates.
+/// Results are cached by image content; nothing leaves the machine.
+/// </summary>
+public abstract class LocalImageTextReader : IImageTextReader
 {
     private readonly Dictionary<string, ImageTextResult> _cache = new();
 
+    protected abstract bool IsAvailable { get; }
+
+    /// <summary>True when the engine reports boxes as 0..1 fractions with the origin at the bottom-left (Vision).</summary>
+    protected abstract bool ReturnsNormalizedBoxes { get; }
+
+    protected abstract ProcessStartInfo CreateStartInfo();
+
+    protected abstract void WriteImage(Process process, byte[] png);
+
     public ImageTextResult Read(byte[] imageData)
     {
-        if (!OperatingSystem.IsWindows())
-            return new([], "Image text recognition requires Windows. Review the image crops.");
+        if (!IsAvailable)
+            return new([], "Image text recognition is not available on this system. Review the image crops.");
         var key = Convert.ToHexString(SHA256.HashData(imageData));
         if (_cache.TryGetValue(key, out var cached))
             return cached;
@@ -36,27 +114,19 @@ public sealed class WindowsImageTextReader : IImageTextReader
             image.Mutate(context => context.Resize(Math.Max(1, (int)(image.Width * scale)), Math.Max(1, (int)(image.Height * scale))));
             using var buffer = new MemoryStream();
             image.SaveAsPng(buffer);
-            using var scriptStream = typeof(WindowsImageTextReader).Assembly.GetManifestResourceStream("DocumentChecker.Engine.Comparison.ReadImageText.ps1")!;
-            using var scriptReader = new StreamReader(scriptStream);
-            var start = new ProcessStartInfo
-            {
-                FileName = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe"),
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardInput = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                StandardOutputEncoding = Encoding.UTF8,
-                StandardErrorEncoding = Encoding.UTF8
-            };
-            start.ArgumentList.Add("-NoProfile");
-            start.ArgumentList.Add("-NonInteractive");
-            start.ArgumentList.Add("-EncodedCommand");
-            start.ArgumentList.Add(Convert.ToBase64String(Encoding.Unicode.GetBytes(scriptReader.ReadToEnd())));
+
+            var start = CreateStartInfo();
+            start.UseShellExecute = false;
+            start.CreateNoWindow = true;
+            start.RedirectStandardInput = true;
+            start.RedirectStandardOutput = true;
+            start.RedirectStandardError = true;
+            start.StandardOutputEncoding = Encoding.UTF8;
+            start.StandardErrorEncoding = Encoding.UTF8;
             using var process = Process.Start(start)!;
             var output = process.StandardOutput.ReadToEndAsync();
             var error = process.StandardError.ReadToEndAsync();
-            process.StandardInput.WriteLine(Convert.ToBase64String(buffer.ToArray()));
+            WriteImage(process, buffer.ToArray());
             process.StandardInput.Close();
             if (!process.WaitForExit(30000))
             {
@@ -68,14 +138,13 @@ public sealed class WindowsImageTextReader : IImageTextReader
             using var json = JsonDocument.Parse(output.GetAwaiter().GetResult());
             if (json.RootElement.TryGetProperty("Error", out var issue))
                 return new([], issue.GetString());
-            var scaleX = (double)originalWidth / image.Width;
-            var scaleY = (double)originalHeight / image.Height;
-            var words = json.RootElement.GetProperty("Words").EnumerateArray().Select(word =>
-                new ImageTextWord(word.GetProperty("Text").GetString()!, new ImageDifferenceRegion(
-                    (int)Math.Floor(word.GetProperty("X").GetDouble() * scaleX),
-                    (int)Math.Floor(word.GetProperty("Y").GetDouble() * scaleY),
-                    Math.Max(1, (int)Math.Ceiling(word.GetProperty("Width").GetDouble() * scaleX)),
-                    Math.Max(1, (int)Math.Ceiling(word.GetProperty("Height").GetDouble() * scaleY))))).ToList();
+
+            var words = json.RootElement.GetProperty("Words").EnumerateArray()
+                .Select(word => new ImageTextWord(word.GetProperty("Text").GetString()!, ToPixels(
+                    word.GetProperty("X").GetDouble(), word.GetProperty("Y").GetDouble(),
+                    word.GetProperty("Width").GetDouble(), word.GetProperty("Height").GetDouble(),
+                    originalWidth, originalHeight, image.Width, image.Height)))
+                .ToList();
             var result = new ImageTextResult(words);
             if (_cache.Count >= 64)
                 _cache.Clear();
@@ -86,5 +155,37 @@ public sealed class WindowsImageTextReader : IImageTextReader
         {
             return new([], "Image text could not be read. Review the image crops.");
         }
+    }
+
+    /// <summary>A word box in the original image's pixels, top-left origin.</summary>
+    private ImageDifferenceRegion ToPixels(double x, double y, double width, double height,
+        int originalWidth, int originalHeight, int scaledWidth, int scaledHeight)
+    {
+        if (ReturnsNormalizedBoxes)
+        {
+            // Normalized boxes do not depend on the enlargement; only the vertical axis is flipped.
+            x *= originalWidth;
+            width *= originalWidth;
+            height *= originalHeight;
+            y = (1 - y) * originalHeight - height;
+        }
+        else
+        {
+            var scaleX = (double)originalWidth / scaledWidth;
+            var scaleY = (double)originalHeight / scaledHeight;
+            x *= scaleX;
+            y *= scaleY;
+            width *= scaleX;
+            height *= scaleY;
+        }
+        return new ImageDifferenceRegion((int)Math.Floor(x), (int)Math.Floor(y),
+            Math.Max(1, (int)Math.Ceiling(width)), Math.Max(1, (int)Math.Ceiling(height)));
+    }
+
+    protected static string ReadScript(string fileName)
+    {
+        using var stream = typeof(LocalImageTextReader).Assembly.GetManifestResourceStream($"DocumentChecker.Engine.Comparison.{fileName}")!;
+        using var reader = new StreamReader(stream);
+        return reader.ReadToEnd();
     }
 }

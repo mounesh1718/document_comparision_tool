@@ -13,6 +13,7 @@ public sealed class HeaderFooterTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"DocumentChecker.Parts.{Guid.NewGuid():N}");
 
     [Fact]
+    [Trait("TC", "TC-PRT-01")]
     public void Header_footer_and_note_changes_are_found_and_located()
     {
         var reference = Create("reference.docx", "ACME Ltd — Confidential", "Approved by QA", "Rev A", footnote: "Source: 2024 audit.");
@@ -38,6 +39,7 @@ public sealed class HeaderFooterTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-PRT-02")]
     public void Page_number_fields_are_compared_as_fields_not_printed_values()
     {
         var reference = Create("reference-pages.docx", "Header", "Approved by QA", "Rev A", pageField: "1");
@@ -51,6 +53,7 @@ public sealed class HeaderFooterTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-PRT-03")]
     public void Fields_in_the_body_keep_their_printed_value()
     {
         string Dated(string name, string date)
@@ -78,6 +81,7 @@ public sealed class HeaderFooterTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-PRT-04")]
     public void A_footer_present_only_in_the_reference_is_reported_as_missing()
     {
         var reference = Create("reference-footer.docx", "Header", "Approved by QA", "Rev A");
@@ -94,6 +98,7 @@ public sealed class HeaderFooterTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-RD-04")]
     public void Header_images_are_read_from_the_header_part()
     {
         var path = Create("logo.docx", "Header", "Approved by QA", "Rev A", headerImage: true);

@@ -155,7 +155,7 @@ public sealed class DocumentReader
         {
             return DocumentReadResult.Failure(
                 "DOCX-FILE-UNAVAILABLE",
-                $"{Path.GetFileName(path)} is currently unavailable. Close Microsoft Word, File Explorer Preview, or another program using the file, then click Compare again.");
+                $"{Path.GetFileName(path)} is currently unavailable. Close Microsoft Word or any other program or file preview using it, then click Compare again.");
         }
         catch (OpenXmlPackageException)
         {
@@ -258,9 +258,12 @@ public sealed class DocumentReader
     private static string? Describe(OpenXmlElement element) => element switch
     {
         DrawingWordprocessing.Anchor => "floating image position and wrapping",
+        // An inline content control holds ordinary runs, which are read and compared like any other text.
+        SdtRun => null,
         _ => element.LocalName switch
         {
             "txbxContent" => "text box",
+            "oMath" or "oMathPara" => "equation",
             "object" or "chart" => "embedded object or chart",
             "pict" => "legacy drawing",
             "relIds" => "SmartArt diagram",
@@ -436,6 +439,9 @@ public sealed class DocumentReader
                 case SoftHyphen:
                     text.Append('\u00AD');
                     break;
+                case SymbolChar symbol:
+                    text.Append(SymbolText.ToChar(symbol.Font?.Value, symbol.Char?.Value));
+                    break;
             }
         }
 
@@ -458,7 +464,8 @@ public sealed class DocumentReader
             verticalAlignment == VerticalPositionValues.Superscript ? true : verticalAlignment is null ? null : false,
             properties?.Color?.Val?.Value,
             properties?.Highlight?.Val?.InnerText,
-            properties?.Spacing?.Val?.Value);
+            properties?.Spacing?.Val?.Value,
+            ReadOnOff(properties?.Vanish));
     }
 
     private static bool? ReadOnOff(OnOffType? value) => value is null ? null : value.Val?.Value ?? true;

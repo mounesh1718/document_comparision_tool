@@ -7,6 +7,7 @@ namespace DocumentChecker.Engine.Tests;
 public sealed class ContentDifferenceTests
 {
     [Theory]
+    [Trait("TC", "TC-TXT-02")]
     [InlineData("Qty 10", "Qty 15", "10", "15")]
     [InlineData("SKU MD-4482", "SKU MD-4482-R", "MD-4482", "MD-4482-R")]
     [InlineData("abc", "Xabc", "abc", "Xabc")]
@@ -16,6 +17,7 @@ public sealed class ContentDifferenceTests
     [InlineData("abc def", "abc", " def", "")]
     [InlineData("alpha,beta", "alpha beta", ",", " ")]
     [InlineData("controlled release", "controlled-release", " ", "-")]
+    [InlineData("ACME Confidential", "ACME Internal Use", "Confidential", "Internal Use")]
     public void Text_changes_show_complete_values_without_including_unrelated_text(string before, string after, string expectedBefore, string expectedAfter)
     {
         var change = Assert.Single(TextChangeAnalyzer.Find(before, after));
@@ -24,6 +26,7 @@ public sealed class ContentDifferenceTests
     }
 
     [Fact]
+    [Trait("TC", "TC-TXT-03")]
     public void Two_changed_values_on_one_line_remain_separate()
     {
         var changes = TextChangeAnalyzer.Find("Quantity 10 price 1,250", "Quantity 15 price 1,750");
@@ -33,6 +36,7 @@ public sealed class ContentDifferenceTests
     }
 
     [Fact]
+    [Trait("TC", "TC-IMG-02")]
     public void Image_table_values_are_individually_selectable_and_have_row_context()
     {
         var left = new ImageTextResult([Word("Sensor", 10), Word("2", 180), Word("1,250", 280)]);
@@ -45,6 +49,7 @@ public sealed class ContentDifferenceTests
     }
 
     [Fact]
+    [Trait("TC", "TC-IMG-03")]
     public void Chart_values_follow_the_category_when_bar_heights_change()
     {
         var axis = new[] { new ImageTextWord("Jan", new(20, 200, 30, 15)), new ImageTextWord("Feb", new(120, 200, 30, 15)), new ImageTextWord("Mar", new(220, 200, 30, 15)) };
@@ -58,6 +63,7 @@ public sealed class ContentDifferenceTests
     }
 
     [Fact]
+    [Trait("TC", "TC-IMG-04")]
     public void Recognition_differences_without_pixel_changes_are_not_reported()
     {
         var changes = ImageContentComparer.Compare(new([Word("10", 20)]), new([Word("IO", 20)]), []);
@@ -65,6 +71,7 @@ public sealed class ContentDifferenceTests
     }
 
     [Fact]
+    [Trait("TC", "TC-IMG-05")]
     public void Unreadable_image_content_keeps_a_visual_change_without_inventing_values()
     {
         var changes = ImageContentComparer.Compare(new([], "OCR unavailable"), new([]), [new(10, 20, 40, 25)]);
@@ -74,12 +81,11 @@ public sealed class ContentDifferenceTests
         Assert.Equal(new ImageDifferenceRegion(10, 20, 40, 25), change.ReferenceRegion);
     }
 
-    [Fact]
-    public void Windows_recognition_reads_actual_image_values_and_returns_original_pixel_coordinates()
+    [OcrFact]
+    [Trait("TC", "TC-IMG-06")]
+    public void System_recognition_reads_actual_image_values_and_returns_original_pixel_coordinates()
     {
-        if (!OperatingSystem.IsWindows())
-            return;
-        var reader = new WindowsImageTextReader();
+        var reader = new SystemImageTextReader();
         var reference = reader.Read(CreateTextImage("Payment terms: 30 days"));
         var current = reader.Read(CreateTextImage("Payment terms: 45 days"));
         Assert.Null(reference.Error);

@@ -43,12 +43,42 @@ internal static class ImageDifferenceAnalyzer
                 regions.Add(ReadRegion(changed, row, column, step, width, height));
             }
 
-            return regions.Where(region => region.Width * region.Height >= step * step).ToList();
+            return MergeNearby(regions.Where(region => region.Width * region.Height >= step * step).ToList(), Math.Max(8, step * 4));
         }
         catch
         {
             return [];
         }
+    }
+
+    /// <summary>
+    /// Joins regions that are close together, so one changed value whose characters are separated by unchanged
+    /// pixels (99.1 -> 98.4) is one region and one finding. Side by side, "close" scales with the text height
+    /// (about three quarters of a character); above and below, it stays at <paramref name="gap"/> pixels so separate
+    /// lines of text stay separate.
+    /// </summary>
+    private static List<ImageDifferenceRegion> MergeNearby(List<ImageDifferenceRegion> regions, int gap)
+    {
+        for (var merged = true; merged;)
+        {
+            merged = false;
+            for (var first = 0; first < regions.Count && !merged; first++)
+            for (var second = first + 1; second < regions.Count && !merged; second++)
+            {
+                var a = regions[first];
+                var b = regions[second];
+                var sideGap = Math.Clamp((int)(0.75 * Math.Max(a.Height, b.Height)), gap, gap * 4);
+                if (a.X - sideGap >= b.X + b.Width || b.X - sideGap >= a.X + a.Width || a.Y - gap >= b.Y + b.Height || b.Y - gap >= a.Y + a.Height)
+                    continue;
+                var x = Math.Min(a.X, b.X);
+                var y = Math.Min(a.Y, b.Y);
+                regions[first] = new ImageDifferenceRegion(x, y,
+                    Math.Max(a.X + a.Width, b.X + b.Width) - x, Math.Max(a.Y + a.Height, b.Y + b.Height) - y);
+                regions.RemoveAt(second);
+                merged = true;
+            }
+        }
+        return regions;
     }
 
     private static ImageDifferenceRegion ReadRegion(bool[,] changed, int startRow, int startColumn, int step, int width, int height)

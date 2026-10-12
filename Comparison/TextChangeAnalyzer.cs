@@ -28,9 +28,13 @@ public static class TextChangeAnalyzer
             if (block.InsertCountB > 0 && block.DeleteCountA == 0 &&
                 !current.Substring(block.InsertStartB, block.InsertCountB).Any(char.IsWhiteSpace))
                 (leftStart, leftEnd) = ExpandAt(reference, leftStart);
+            // Overlapping changes are one change, and so are changes that touch on both sides with nothing
+            // unchanged between them (e.g. "Confidential" -> "Internal Use" is one replacement, not two).
             if (changes.LastOrDefault() is { } previous &&
                 (leftStart < previous.ReferenceStart + previous.ReferenceLength ||
-                rightStart < previous.CurrentStart + previous.CurrentLength))
+                rightStart < previous.CurrentStart + previous.CurrentLength ||
+                leftStart <= previous.ReferenceStart + previous.ReferenceLength &&
+                rightStart <= previous.CurrentStart + previous.CurrentLength))
             {
                 var a = Math.Min(leftStart, previous.ReferenceStart); var b = Math.Min(rightStart, previous.CurrentStart);
                 changes[^1] = new(a, Math.Max(leftEnd, previous.ReferenceStart + previous.ReferenceLength) - a,

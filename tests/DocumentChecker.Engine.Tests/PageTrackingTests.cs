@@ -11,6 +11,7 @@ public sealed class PageTrackingTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"DocumentChecker.Pages.{Guid.NewGuid():N}");
 
     [Fact]
+    [Trait("TC", "TC-PG-01")]
     public void Changed_text_uses_its_position_within_a_paragraph_and_separate_pages_on_each_side()
     {
         var reference = Create("reference.docx", body => body.Append(new Paragraph(new Run(
@@ -25,6 +26,7 @@ public sealed class PageTrackingTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-PG-02")]
     public void Explicit_break_and_cached_marker_are_not_counted_twice_in_a_table()
     {
         var path = Create("table.docx", body =>
@@ -38,6 +40,7 @@ public sealed class PageTrackingTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-PG-04")]
     public void Page_break_before_and_its_saved_marker_share_one_page_boundary()
     {
         var path = Create("before.docx", body =>
@@ -50,6 +53,7 @@ public sealed class PageTrackingTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-PG-03")]
     public void Manual_breaks_without_saved_layout_are_explicitly_estimated()
     {
         var path = Create("manual.docx", body => body.Append(new Paragraph(new Run(new Text("First"),
@@ -63,6 +67,7 @@ public sealed class PageTrackingTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-PG-05")]
     public void Documents_without_page_positions_do_not_claim_an_exact_page_one()
     {
         var path = Create("unknown.docx", body => body.Append(new Paragraph(new Run(new Text("No cached layout")))));
@@ -71,6 +76,7 @@ public sealed class PageTrackingTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-PG-06")]
     public void Embedded_image_after_an_intrarun_break_gets_its_own_page()
     {
         var path = Create("image.docx", body => body.Append(new Paragraph(new Run(new Text("Page one")))));

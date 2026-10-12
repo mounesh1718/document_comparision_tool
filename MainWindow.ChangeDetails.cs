@@ -23,59 +23,23 @@ public partial class MainWindow
         return reference == current ? $"Both documents: {reference}" : $"Reference: {reference}\nCurrent: {current}";
     }
 
+    /// <summary>Headers, footers and notes are named; paragraphs are counted as a reader counts them (see FindingText.Location).</summary>
     private string DescribeSideLocation(DocumentDifference difference, bool isReference)
     {
         var location = isReference ? difference.ReferenceLocation : difference.CurrentLocation;
-        if (location is null)
-            return "Not present";
         var document = isReference ? _comparisonResult?.ReferenceDocument : _comparisonResult?.CurrentDocument;
-        var cell = location.TableCell;
-        // Headers, footers and notes have no single page; name the part instead.
-        var part = PartOf(document, location.ParagraphIndex);
-        var place = part?.Name ?? location.PageDisplay;
-        // Inside a part, count paragraphs from the start of that part rather than of the whole file.
-        var paragraphNumber = part is null
-            ? location.ParagraphIndex + 1
-            : document!.Paragraphs.Count(paragraph => paragraph.Part?.Key == part.Key && paragraph.Index <= location.ParagraphIndex);
-        if (cell is null)
-        {
-            var kind = GetDisplayContentKind(difference, isReference);
-            return kind == DifferenceContentKind.Image ? $"{place}, Image, Paragraph {paragraphNumber}" : $"{place}, Paragraph {paragraphNumber}";
-        }
-        var table = FindTable(document, cell.TableIndex);
-        var rowLabel = CellText(table?.Rows.ElementAtOrDefault(cell.RowIndex)?.Cells.FirstOrDefault());
-        var columnLabel = ColumnHeader(table, cell);
-        var labels = string.Join(" · ", new[] { rowLabel, columnLabel }.Where(label => !string.IsNullOrWhiteSpace(label)).Select(ShortLabel));
-        return $"{place} · Table {cell.TableIndex + 1}, Row {cell.RowIndex + 1}, Column {ColumnNumber(table, cell)}" +
-            (labels.Length == 0 ? string.Empty : $" ({labels})");
+        return FindingText.Location(document, location, GetDisplayContentKind(difference, isReference) == DifferenceContentKind.Image);
     }
 
     /// <summary>The grid column (1-based) of a cell; merged cells to its left count by the columns they cover.</summary>
-    private static int ColumnNumber(TableDisplayBlock? table, TableCellLocation cell) => GridColumnAt(table, cell) + 1;
+    private static int ColumnNumber(TableDisplayBlock? table, TableCellLocation cell) => FindingText.GridColumnAt(table, cell) + 1;
 
-    /// <summary>The header text above a cell: the first-row cell that covers the same grid column.</summary>
-    private static string ColumnHeader(TableDisplayBlock? table, TableCellLocation cell)
-    {
-        var column = GridColumnAt(table, cell);
-        var header = table?.Rows.FirstOrDefault()?.Cells
-            .Select((candidate, index) => (Cell: candidate, Start: GridColumnOf(candidate, index)))
-            .FirstOrDefault(item => item.Start <= column && column < item.Start + item.Cell.ColumnSpan).Cell;
-        return CellText(header);
-    }
-
-    private static int GridColumnAt(TableDisplayBlock? table, TableCellLocation cell) =>
-        table?.Rows.ElementAtOrDefault(cell.RowIndex)?.Cells.ElementAtOrDefault(cell.CellIndex) is { } target
-            ? GridColumnOf(target, cell.CellIndex)
-            : cell.CellIndex;
+    private static string ColumnHeader(TableDisplayBlock? table, TableCellLocation cell) => FindingText.ColumnHeader(table, cell);
 
     private static DocumentPart? PartOf(DocumentModel? document, int paragraphIndex) =>
         document?.Paragraphs.FirstOrDefault(paragraph => paragraph.Index == paragraphIndex)?.Part;
 
-    /// <summary>Finds a table anywhere in the document, including inside headers, footers and notes.</summary>
-    private static TableDisplayBlock? FindTable(DocumentModel? document, int tableIndex) => document?.DisplayBlocks
-        .SelectMany(block => block is PartDisplayBlock part ? part.Blocks : [block])
-        .OfType<TableDisplayBlock>()
-        .FirstOrDefault(table => table.TableIndex == tableIndex);
+    private static TableDisplayBlock? FindTable(DocumentModel? document, int tableIndex) => FindingText.FindTable(document, tableIndex);
 
     private string DescribeRepresentation(DocumentDifference difference)
     {
@@ -147,8 +111,8 @@ public partial class MainWindow
         return $"{prefix}Table {cell.TableIndex + 1} · Row {cell.RowIndex + 1} · Column {ColumnNumber(table, cell)}{labels}";
     }
 
-    private static string CellText(DocumentTableCell? cell) => cell is null ? string.Empty : string.Join(" ", cell.Paragraphs.Select(paragraph => paragraph.Text));
-    private static string ShortLabel(string text) => text.Length <= 70 ? text : text[..67] + "…";
+    private static string CellText(DocumentTableCell? cell) => FindingText.CellText(cell);
+    private static string ShortLabel(string text) => FindingText.ShortLabel(text);
 
     private void ClearImageDetails()
     {

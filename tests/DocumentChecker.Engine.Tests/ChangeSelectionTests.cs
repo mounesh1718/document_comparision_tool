@@ -1,6 +1,7 @@
 using System.Reflection;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Headless;
 using Avalonia.Input;
 using Avalonia.Input.Raw;
 using Avalonia.Media.Imaging;
@@ -16,26 +17,32 @@ namespace DocumentChecker.Engine.Tests;
 public sealed class ChangeSelectionTests
 {
     [Fact]
+    [Trait("TC", "TC-UI-01")]
     public void Clicking_a_table_value_or_image_region_focuses_its_exact_change_and_supports_reselection()
     {
-        if (!OperatingSystem.IsWindows())
-            return;
         Exception? failure = null;
         var thread = new Thread(() =>
         {
             try { VerifySelection(); }
             catch (Exception exception) { failure = exception; }
         });
-        thread.SetApartmentState(ApartmentState.STA);
+        if (OperatingSystem.IsWindows())
+            thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(30)), "UI selection test timed out.");
+        Assert.True(thread.Join(TimeSpan.FromSeconds(60)), "UI selection test timed out.");
         if (failure is not null)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
     }
 
     private static void VerifySelection()
     {
-        AppBuilder.Configure<App>().UsePlatformDetect().SetupWithoutStarting();
+        // Windows uses the real desktop platform. Elsewhere the window is drawn off screen by the headless platform
+        // with the same Skia renderer, because macOS only allows windows on the process's main thread.
+        var builder = AppBuilder.Configure<App>();
+        (OperatingSystem.IsWindows()
+            ? builder.UsePlatformDetect()
+            : builder.UseSkia().UseHeadless(new AvaloniaHeadlessPlatformOptions { UseHeadlessDrawing = false }))
+            .SetupWithoutStarting();
         var window = new MainWindow();
         window.Position = new PixelPoint(-30000, -30000);
         window.ShowInTaskbar = false;
@@ -104,14 +111,14 @@ public sealed class ChangeSelectionTests
             }
 
             Invoke(window, "HighlightToggle_Click", null, new Avalonia.Interactivity.RoutedEventArgs());
-            Assert.Equal("Show markers", window.FindControl<Button>("HighlightToggleButton")!.Content);
+            Assert.Equal("Show highlights", window.FindControl<Button>("HighlightToggleButton")!.Content);
             var hiddenMarkers = window.FindControl<StackPanel>("CurrentDocumentPanel")!.GetVisualDescendants()
                 .OfType<Border>().Where(border => border.Parent is Canvas && !border.IsHitTestVisible).ToList();
             Assert.NotEmpty(hiddenMarkers);
             Assert.All(hiddenMarkers, marker => Assert.False(marker.IsVisible));
             ClickAnchor(window, image.Id, false);
             AssertDetails(window, "30", "45");
-            Assert.Equal("Show markers", window.FindControl<Button>("HighlightToggleButton")!.Content);
+            Assert.Equal("Show highlights", window.FindControl<Button>("HighlightToggleButton")!.Content);
 
             Invoke(window, "ShowAllChanges_Click", null, new Avalonia.Interactivity.RoutedEventArgs());
             Assert.Equal(3, window.FindControl<ListBox>("DifferenceList")!.ItemCount);
@@ -123,7 +130,7 @@ public sealed class ChangeSelectionTests
                 CurrentImageRegion = null, CurrentRange = new(3, 0, 2), CurrentLocation = new(3, 0, new(0, 1, 1)), CurrentValue = "15",
                 CurrentTableIndex = 0, ReferenceContentKind = DifferenceContentKind.Image, CurrentContentKind = DifferenceContentKind.Table };
             Invoke(window, "HighlightToggle_Click", null, new Avalonia.Interactivity.RoutedEventArgs());
-            Assert.Equal("Hide markers", window.FindControl<Button>("HighlightToggleButton")!.Content);
+            Assert.Equal("Hide highlights", window.FindControl<Button>("HighlightToggleButton")!.Content);
             Set(window, "_comparisonResult", result with { Differences = [mixed] });
             Set(window, "_navigatorItems", Invoke(window, "BuildNavigatorItems", new List<DocumentDifference> { mixed }));
             Invoke(window, "RenderDocuments");

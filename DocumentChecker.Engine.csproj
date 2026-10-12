@@ -22,6 +22,7 @@
     <Compile Remove="tests\**\*.cs" />
     <Compile Remove="tmp\**\*.cs" />
     <EmbeddedResource Include="Comparison\ReadImageText.ps1" />
+    <EmbeddedResource Include="Comparison\ReadImageTextMac.js" />
   </ItemGroup>
 
 </Project>

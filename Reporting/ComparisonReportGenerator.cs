@@ -33,7 +33,7 @@ public sealed class ComparisonReportGenerator
             AddCategorySummary(section, result.Differences);
             AddHeading(section, "Detailed review", "ReportHeading1");
             foreach (var difference in result.Differences)
-                AddDifferenceCard(section, difference);
+                AddDifferenceCard(section, difference, result);
         }
 
         var renderer = new PdfDocumentRenderer { Document = document };
@@ -120,7 +120,7 @@ public sealed class ComparisonReportGenerator
         header.Cells[0].AddParagraph("Change type").Style = "ReportLabel";
         header.Cells[1].AddParagraph("Count").Style = "ReportLabel";
 
-        foreach (var category in differences.GroupBy(OperationText).OrderBy(group => group.Key))
+        foreach (var category in differences.GroupBy(FindingText.Operation).OrderBy(group => group.Key))
         {
             var row = table.AddRow();
             row.Cells[0].AddParagraph(category.Key);
@@ -130,9 +130,9 @@ public sealed class ComparisonReportGenerator
         section.AddParagraph().Format.SpaceAfter = Unit.FromPoint(3);
     }
 
-    private static void AddDifferenceCard(Section section, DocumentDifference difference)
+    private static void AddDifferenceCard(Section section, DocumentDifference difference, ComparisonResult result)
     {
-        var title = section.AddParagraph($"{difference.Id} | {OperationText(difference)}", "DifferenceTitle");
+        var title = section.AddParagraph($"{difference.Id} | {FindingText.Operation(difference)}", "DifferenceTitle");
         title.Format.KeepWithNext = true;
 
         var metadata = section.AddTable();
@@ -141,8 +141,10 @@ public sealed class ComparisonReportGenerator
         metadata.AddColumn(Unit.FromCentimeter(3.1));
         metadata.AddColumn(Unit.FromCentimeter(13.5));
         AddKeyValueRow(metadata, "Changed property", difference.Property);
-        AddKeyValueRow(metadata, "Reference location", difference.ReferenceLocation?.Display ?? "No corresponding content");
-        AddKeyValueRow(metadata, "Current location", difference.CurrentLocation?.Display ?? "No corresponding content");
+        AddKeyValueRow(metadata, "Reference location",
+            FindingText.Location(result.ReferenceDocument, difference.ReferenceLocation, difference.ReferenceImageId is not null));
+        AddKeyValueRow(metadata, "Current location",
+            FindingText.Location(result.CurrentDocument, difference.CurrentLocation, difference.CurrentImageId is not null));
 
         var values = section.AddTable();
         values.Borders.Width = Unit.FromPoint(0.5);
@@ -157,8 +159,8 @@ public sealed class ComparisonReportGenerator
         var valueRow = values.AddRow();
         valueRow.Cells[0].Shading.Color = Colors.MistyRose;
         valueRow.Cells[1].Shading.Color = Colors.Honeydew;
-        AddCellText(valueRow.Cells[0], DisplayValue(difference.ReferenceValue));
-        AddCellText(valueRow.Cells[1], DisplayValue(difference.CurrentValue));
+        AddCellText(valueRow.Cells[0], FindingText.PrintableValue(difference.ReferenceValue));
+        AddCellText(valueRow.Cells[1], FindingText.PrintableValue(difference.CurrentValue));
 
         var context = section.AddParagraph();
         context.Format.SpaceBefore = Unit.FromPoint(3);
@@ -188,20 +190,6 @@ public sealed class ComparisonReportGenerator
     }
 
     private static string DisplayValue(string value) => string.IsNullOrWhiteSpace(value) ? "(empty)" : value;
-
-    private static string OperationText(DocumentDifference difference) => difference.Category switch
-    {
-        DifferenceCategory.Review => "Needs review",
-        DifferenceCategory.ParagraphAdded => "Inserted paragraph",
-        DifferenceCategory.ParagraphRemoved => "Deleted paragraph",
-        DifferenceCategory.Table => "Table changed",
-        DifferenceCategory.Formatting => "Formatting changed",
-        DifferenceCategory.Image when difference.IsRecognizedText => "Recognized value - verify (OCR)",
-        DifferenceCategory.Image => "Image changed",
-        DifferenceCategory.Text when difference.ReferenceValue == "(no corresponding content)" => "Inserted text",
-        DifferenceCategory.Text when difference.CurrentValue == "(no corresponding content)" => "Deleted text",
-        _ => "Text changed"
-    };
 
     private static string StatusText(ComparisonStatus status) => status switch
     {

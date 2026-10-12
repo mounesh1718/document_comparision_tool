@@ -112,7 +112,8 @@ public sealed record RunFormatting(
     bool? Superscript,
     string? FontColor,
     string? Highlight,
-    int? CharacterSpacingTwips);
+    int? CharacterSpacingTwips,
+    bool? Hidden = null);
 
 /// <summary>Content the comparison cannot verify. A null paragraph and table means the whole document (headers, footers, notes).</summary>
 public sealed record DocumentReviewItem(string Message, int? ParagraphIndex = null, int? TableIndex = null);

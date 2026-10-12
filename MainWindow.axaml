@@ -1,203 +1,311 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="DocumentChecker.Engine.MainWindow"
-        Title="Document Checker | Reference Review"
+        Title="Document Checker"
         Width="1500"
         Height="900"
-        MinWidth="1000"
-        MinHeight="650"
-        FontFamily="Segoe UI"
-        Background="#EFF3F8">
+        MinWidth="1100"
+        MinHeight="680"
+        FontFamily="Segoe UI, Helvetica Neue, Arial"
+        Background="#F3F5F9">
   <Window.Styles>
     <Style Selector="Button">
-      <Setter Property="Padding" Value="14,8" />
+      <Setter Property="Padding" Value="12,7" />
       <Setter Property="Background" Value="#F1F5F9" />
       <Setter Property="Foreground" Value="#172B4D" />
+      <Setter Property="BorderBrush" Value="#E2E8F0" />
+      <Setter Property="BorderThickness" Value="1" />
       <Setter Property="CornerRadius" Value="6" />
+      <Setter Property="VerticalAlignment" Value="Center" />
     </Style>
     <Style Selector="Button.primary">
       <Setter Property="Background" Value="#2457C5" />
       <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderThickness" Value="0" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="22,10" />
+      <Setter Property="FontSize" Value="15" />
+    </Style>
+    <Style Selector="Button.review">
+      <Setter Property="Background" Value="#F59E0B" />
+      <Setter Property="Foreground" Value="#1F2937" />
+      <Setter Property="BorderThickness" Value="0" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+    <Style Selector="Button.square">
+      <Setter Property="Padding" Value="0" />
+      <Setter Property="Width" Value="32" />
+      <Setter Property="Height" Value="32" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="White" />
+      <Setter Property="BorderBrush" Value="#E2E8F0" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="BoxShadow" Value="0 1 3 0 #14000000" />
+    </Style>
+    <Style Selector="TextBlock.caption">
+      <Setter Property="FontSize" Value="11" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="Foreground" Value="#64748B" />
+    </Style>
+    <Style Selector="TextBlock.legend">
+      <Setter Property="FontSize" Value="11.5" />
+      <Setter Property="Foreground" Value="#475569" />
+      <Setter Property="VerticalAlignment" Value="Center" />
+      <Setter Property="Margin" Value="5,0,14,0" />
+    </Style>
     <Style Selector="ListBoxItem">
-      <Setter Property="Padding" Value="4" />
+      <Setter Property="Padding" Value="2" />
     </Style>
   </Window.Styles>
-  <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="18" RowSpacing="12" Background="#EFF3F8">
-    <Grid ColumnDefinitions="*,Auto">
-      <StackPanel Spacing="3">
-        <TextBlock FontSize="24" FontWeight="SemiBold" Foreground="#172B4D" Text="Document review" />
-        <TextBlock Foreground="#526171" Text="Check the Current document against your approved Reference." />
-      </StackPanel>
-      <Border Grid.Column="1" Background="#E6EEF9" CornerRadius="6" Padding="12,8" VerticalAlignment="Center">
-        <TextBlock Foreground="#2457C5" FontSize="12" Text="LOCAL PROCESSING  /  READ ONLY" />
-      </Border>
-    </Grid>
-    <Border Grid.Row="1" Background="White" BorderBrush="#D5DAE1" BorderThickness="1" CornerRadius="8" Padding="12">
-      <Grid ColumnDefinitions="Auto,*,Auto,*,Auto" ColumnSpacing="10">
-      <Button Grid.Column="0" Click="SelectReference_Click">Reference DOCX</Button>
-      <TextBlock x:Name="ReferencePathText" Grid.Column="1" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-      <Button Grid.Column="2" Click="SelectCurrent_Click">Current DOCX</Button>
-      <TextBlock x:Name="CurrentPathText" Grid.Column="3" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
-      <Button x:Name="CompareButton" Classes="primary" Grid.Column="4" Click="Compare_Click" IsEnabled="False">Compare documents</Button>
-      </Grid>
-    </Border>
 
-    <Border Grid.Row="2" Background="#26374A" CornerRadius="8" Padding="12,9">
-      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
-        <TextBlock x:Name="StatusText" Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" Text="Select a Reference DOCX and a Current DOCX." />
-        <Button x:Name="NextReviewButton" Grid.Column="1" Click="NextReview_Click" IsVisible="False" Background="#F59E0B" Foreground="#1F2937" FontWeight="SemiBold"
-                ToolTip.Tip="Go to each item that needs review. Amber marks show them in the documents and beside the scroll bars.">Next to review</Button>
-        <Button Grid.Column="2" Click="PreviousDifference_Click">Previous</Button>
-        <Button Grid.Column="3" Click="NextDifference_Click">Next</Button>
-        <Button x:Name="GeneratePdfButton" Grid.Column="4" Click="GeneratePdf_Click" IsEnabled="False">Generate PDF Report</Button>
-        <Button Grid.Column="5" Click="ZoomOut_Click">Zoom -</Button>
-        <TextBlock x:Name="ZoomText" Grid.Column="6" Foreground="White" VerticalAlignment="Center" Text="100%" />
-        <Button Grid.Column="7" Click="ZoomIn_Click">Zoom +</Button>
-        <Button x:Name="HighlightToggleButton" Grid.Column="8" Click="HighlightToggle_Click" ToolTip.Tip="Hide the change markers to read the original content. Changes remain clickable.">Hide markers</Button>
-      </Grid>
-    </Border>
+  <Grid RowDefinitions="Auto,Auto,*,Auto" Margin="14" RowSpacing="10">
 
-    <Grid Grid.Row="3" ColumnDefinitions="*,*,380" ColumnSpacing="12">
-      <Border Background="White" BorderBrush="#C9CDD2" BorderThickness="1" CornerRadius="8" Padding="0">
-        <Grid RowDefinitions="Auto,*">
-          <Border Background="#F4F6F8" BorderBrush="#D5DAE1" BorderThickness="0,0,0,1" Padding="14,10">
-            <StackPanel Spacing="2">
-              <TextBlock FontSize="14" Foreground="#9F1239" FontWeight="Bold" Text="REFERENCE / SOURCE OF TRUTH" />
-              <TextBlock x:Name="ReferenceDocumentName" Foreground="#526171" Text="No document selected" TextTrimming="CharacterEllipsis" />
+    <!-- 1. Choose the two documents -->
+    <Border Classes="card" Padding="14,10">
+      <Grid ColumnDefinitions="Auto,*,*,Auto" ColumnSpacing="12">
+        <StackPanel VerticalAlignment="Center" Spacing="1" Margin="0,0,6,0">
+          <TextBlock FontSize="19" FontWeight="SemiBold" Foreground="#172B4D" Text="Document Checker" />
+          <TextBlock FontSize="12" Foreground="#64748B" Text="Runs on this computer · never changes your files" />
+        </StackPanel>
+
+        <Border Grid.Column="1" Background="#FFF5F6" BorderBrush="#FECDD3" BorderThickness="1" CornerRadius="8" Padding="12,7">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <StackPanel Spacing="1" VerticalAlignment="Center">
+              <TextBlock Classes="caption" Foreground="#9F1239" TextTrimming="CharacterEllipsis" Text="① APPROVED (REFERENCE)" />
+              <TextBlock x:Name="ReferencePathText" FontSize="14" FontWeight="SemiBold" Foreground="#172B4D" TextTrimming="CharacterEllipsis" Text="Not chosen yet" />
             </StackPanel>
+            <Button Grid.Column="1" Click="SelectReference_Click" Background="White">Choose…</Button>
+          </Grid>
+        </Border>
+
+        <Border Grid.Column="2" Background="#F3FCF6" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="8" Padding="12,7">
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <StackPanel Spacing="1" VerticalAlignment="Center">
+              <TextBlock Classes="caption" Foreground="#166534" TextTrimming="CharacterEllipsis" Text="② TO CHECK (CURRENT)" />
+              <TextBlock x:Name="CurrentPathText" FontSize="14" FontWeight="SemiBold" Foreground="#172B4D" TextTrimming="CharacterEllipsis" Text="Not chosen yet" />
+            </StackPanel>
+            <Button Grid.Column="1" Click="SelectCurrent_Click" Background="White">Choose…</Button>
+          </Grid>
+        </Border>
+
+        <Button x:Name="CompareButton" Grid.Column="3" Classes="primary" Click="Compare_Click" IsEnabled="False">Compare</Button>
+      </Grid>
+    </Border>
+
+    <!-- 2. Result and actions -->
+    <Border Grid.Row="1" Classes="card" Padding="14,8">
+      <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="14" RowSpacing="6">
+          <TextBlock x:Name="StatusText" FontSize="15" FontWeight="SemiBold" Foreground="#172B4D" TextWrapping="Wrap" VerticalAlignment="Center"
+                     Text="Choose the approved document and the document to check, then click Compare." />
+          <WrapPanel x:Name="LegendPanel" Grid.Row="1" Grid.ColumnSpan="5" IsVisible="False" Orientation="Horizontal"
+                     ToolTip.Tip="What the colours mean in the two documents. Click any highlight to see it explained.">
+            <Border Width="16" Height="11" BorderBrush="#F87171" BorderThickness="0,0,0,2" VerticalAlignment="Center" />
+            <TextBlock Classes="legend" Text="Approved value" />
+            <Border Width="16" Height="11" BorderBrush="#4ADE80" BorderThickness="0,0,0,2" VerticalAlignment="Center" />
+            <TextBlock Classes="legend" Text="Current value" />
+            <Border Width="16" Height="11" Background="#FDF2F8" BorderBrush="#F472B6" BorderThickness="1" VerticalAlignment="Center" />
+            <TextBlock Classes="legend" Text="Missing, added or formatting" />
+            <Border Width="16" Height="11" Background="#FFFBEB" BorderBrush="#F59E0B" BorderThickness="3,0,0,0" VerticalAlignment="Center" />
+            <TextBlock Classes="legend" Text="Check yourself" />
+            <Border Width="16" Height="11" Background="#F1F5F9" BorderBrush="#64748B" BorderThickness="1" VerticalAlignment="Center" />
+            <TextBlock Classes="legend" Text="Image ↔ table" />
+            <TextBlock Classes="legend" Foreground="#94A3B8" Text="·  Click any highlight to see it explained" />
+          </WrapPanel>
+
+        <Button x:Name="NextReviewButton" Grid.Column="1" Classes="review" Click="NextReview_Click" IsVisible="False"
+                ToolTip.Tip="Go through each item you need to check yourself. They are amber in the documents and beside the scroll bars.">Next to review</Button>
+
+        <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+          <Button Click="PreviousDifference_Click" ToolTip.Tip="Previous difference">‹ Previous</Button>
+          <TextBlock x:Name="PositionText" MinWidth="58" TextAlignment="Center" VerticalAlignment="Center" Foreground="#475569" Text="" />
+          <Button Click="NextDifference_Click" ToolTip.Tip="Next difference">Next ›</Button>
+        </StackPanel>
+
+        <StackPanel Grid.Column="3" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+          <Button Classes="square" Click="ZoomOut_Click" ToolTip.Tip="Smaller text">−</Button>
+          <TextBlock x:Name="ZoomText" MinWidth="44" TextAlignment="Center" VerticalAlignment="Center" Foreground="#475569" Text="100%" />
+          <Button Classes="square" Click="ZoomIn_Click" ToolTip.Tip="Larger text">+</Button>
+          <Button x:Name="HighlightToggleButton" Click="HighlightToggle_Click" Margin="6,0,0,0"
+                  ToolTip.Tip="Hide the highlights to read the documents as they are. Changes stay clickable.">Hide highlights</Button>
+        </StackPanel>
+
+        <Button x:Name="GeneratePdfButton" Grid.Column="4" Click="GeneratePdf_Click" IsEnabled="False">Save PDF report</Button>
+      </Grid>
+    </Border>
+
+    <!-- 3. The two documents side by side, and the list of differences -->
+    <Grid Grid.Row="2" ColumnSpacing="10">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="*" />
+        <!-- The list narrows on small screens so the documents keep most of the width. -->
+        <ColumnDefinition Width="0.75*" MinWidth="300" MaxWidth="380" />
+      </Grid.ColumnDefinitions>
+      <Border Classes="card" ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*">
+          <Border Background="#FFF5F6" BorderBrush="#FECDD3" BorderThickness="0,0,0,1" Padding="14,8">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+              <Border Width="10" Height="10" CornerRadius="5" Background="#E11D48" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="1" Spacing="1">
+                <TextBlock FontWeight="Bold" Foreground="#9F1239" Text="Approved · Reference" />
+                <TextBlock x:Name="ReferenceDocumentName" FontSize="12" Foreground="#64748B" Text="No document selected" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </Grid>
           </Border>
-          <Grid Grid.Row="1" ColumnDefinitions="*,14">
+          <Grid Grid.Row="1" ColumnDefinitions="*,12">
             <ScrollViewer x:Name="ReferenceScrollViewer"
-                          Background="#EEF1F4"
+                          Background="#EEF1F5"
                           VerticalScrollBarVisibility="Visible"
-                          HorizontalScrollBarVisibility="Visible"
+                          HorizontalScrollBarVisibility="Disabled"
                           ScrollChanged="ReferenceScrollViewer_ScrollChanged">
-              <Border x:Name="ReferencePageSurface" Width="900" HorizontalAlignment="Left" Background="White" BorderBrush="#DDE2E7" BorderThickness="1" Margin="18" Padding="24" BoxShadow="0 2 8 0 #22000000">
+              <Border x:Name="ReferencePageSurface" MaxWidth="900" HorizontalAlignment="Stretch" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" Margin="12" Padding="26,22" BoxShadow="0 1 4 0 #18000000">
                 <StackPanel x:Name="ReferenceDocumentPanel" Spacing="12" />
               </Border>
             </ScrollViewer>
             <Canvas x:Name="ReferenceOverview" Grid.Column="1" Background="#E2E8F0" ClipToBounds="True"
-                    ToolTip.Tip="Where the changes are in this document. Amber = needs review. Click a mark to jump to it." />
+                    ToolTip.Tip="Where the differences are in this document. Amber = check yourself. Click a mark to jump to it." />
           </Grid>
         </Grid>
       </Border>
 
-      <Border Grid.Column="1" Background="White" BorderBrush="#C9CDD2" BorderThickness="1" CornerRadius="8" Padding="0">
+      <Border Grid.Column="1" Classes="card" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
-          <Border Background="#F4F6F8" BorderBrush="#D5DAE1" BorderThickness="0,0,0,1" Padding="14,10">
-            <StackPanel Spacing="2">
-              <TextBlock FontSize="14" Foreground="#166534" FontWeight="Bold" Text="CURRENT / UNDER REVIEW" />
-              <TextBlock x:Name="CurrentDocumentName" Foreground="#526171" Text="No document selected" TextTrimming="CharacterEllipsis" />
-            </StackPanel>
+          <Border Background="#F3FCF6" BorderBrush="#BBF7D0" BorderThickness="0,0,0,1" Padding="14,8">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+              <Border Width="10" Height="10" CornerRadius="5" Background="#16A34A" VerticalAlignment="Center" />
+              <StackPanel Grid.Column="1" Spacing="1">
+                <TextBlock FontWeight="Bold" Foreground="#166534" Text="Being checked · Current" />
+                <TextBlock x:Name="CurrentDocumentName" FontSize="12" Foreground="#64748B" Text="No document selected" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+            </Grid>
           </Border>
-          <Grid Grid.Row="1" ColumnDefinitions="*,14">
+          <Grid Grid.Row="1" ColumnDefinitions="*,12">
             <ScrollViewer x:Name="CurrentScrollViewer"
-                          Background="#EEF1F4"
+                          Background="#EEF1F5"
                           VerticalScrollBarVisibility="Visible"
-                          HorizontalScrollBarVisibility="Visible"
+                          HorizontalScrollBarVisibility="Disabled"
                           ScrollChanged="CurrentScrollViewer_ScrollChanged">
-              <Border x:Name="CurrentPageSurface" Width="900" HorizontalAlignment="Left" Background="White" BorderBrush="#DDE2E7" BorderThickness="1" Margin="18" Padding="24" BoxShadow="0 2 8 0 #22000000">
+              <Border x:Name="CurrentPageSurface" MaxWidth="900" HorizontalAlignment="Stretch" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" Margin="12" Padding="26,22" BoxShadow="0 1 4 0 #18000000">
                 <StackPanel x:Name="CurrentDocumentPanel" Spacing="12" />
               </Border>
             </ScrollViewer>
             <Canvas x:Name="CurrentOverview" Grid.Column="1" Background="#E2E8F0" ClipToBounds="True"
-                    ToolTip.Tip="Where the changes are in this document. Amber = needs review. Click a mark to jump to it." />
+                    ToolTip.Tip="Where the differences are in this document. Amber = check yourself. Click a mark to jump to it." />
           </Grid>
         </Grid>
       </Border>
 
-      <Border Grid.Column="2" Background="White" BorderBrush="#C9CDD2" BorderThickness="1" CornerRadius="8" Padding="12">
-      <Grid RowDefinitions="Auto,*,2*" RowSpacing="8">
-        <StackPanel Spacing="6">
-        <Grid ColumnDefinitions="*,Auto">
-          <TextBlock FontSize="14" FontWeight="Bold" Text="REVIEW FINDINGS" />
-          <TextBlock x:Name="DifferenceCountText" Grid.Column="1" Foreground="#526171" Text="0 changes" />
-        </Grid>
-        <ComboBox x:Name="FindingFilter" HorizontalAlignment="Stretch" SelectionChanged="FindingFilter_SelectionChanged" SelectedIndex="0">
-          <ComboBoxItem>All findings</ComboBoxItem>
-          <ComboBoxItem>Missing or added content</ComboBoxItem>
-          <ComboBoxItem>Table values and structure</ComboBoxItem>
-          <ComboBoxItem>Images and recognized text</ComboBoxItem>
-          <ComboBoxItem>Needs review</ComboBoxItem>
-        </ComboBox>
-        <TextBlock x:Name="SelectionScopeText" Text="All changes · click a highlighted value to focus" TextWrapping="Wrap" Foreground="#526171" FontSize="12" />
-        <Button x:Name="ShowAllChangesButton" Click="ShowAllChanges_Click" IsVisible="False" HorizontalAlignment="Left" Padding="8,4">Show all changes</Button>
-        </StackPanel>
-        <ListBox x:Name="DifferenceList"
-                 Grid.Row="1"
-                 SelectionChanged="DifferenceList_SelectionChanged"
-                 Background="#F8FAFC"
-                 ScrollViewer.VerticalScrollBarVisibility="Visible"
-                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
-          <ListBox.ItemTemplate>
-            <DataTemplate>
-              <Border Margin="4" Padding="8" Background="White" BorderBrush="#DCE3EA" BorderThickness="1" CornerRadius="5">
-                <StackPanel Spacing="3">
-                  <TextBlock FontWeight="SemiBold" TextWrapping="Wrap" Text="{Binding Operation}" />
-                  <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#1E40AF" TextWrapping="Wrap" Text="{Binding TransitionAndCount}" />
-                  <TextBlock FontSize="11" Foreground="#526171" TextWrapping="Wrap" Text="{Binding LineDescription}" />
-                  <TextBlock FontSize="14" Foreground="#9F1239" TextWrapping="Wrap" Text="{Binding Before}" />
-                  <TextBlock FontSize="14" FontWeight="SemiBold" Foreground="#166534" TextWrapping="Wrap" Text="{Binding After}" />
-                </StackPanel>
-              </Border>
-            </DataTemplate>
-          </ListBox.ItemTemplate>
-        </ListBox>
-        <Border Grid.Row="2" Background="#F4F6F8" CornerRadius="6" Padding="12">
-          <ScrollViewer x:Name="DetailScrollViewer" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-          <StackPanel Spacing="7">
-            <TextBlock FontWeight="Bold" Text="WHAT CHANGED" />
-            <TextBlock x:Name="DetailOperationText" FontWeight="SemiBold" Foreground="#1E40AF" TextWrapping="Wrap" />
-            <TextBlock x:Name="DetailConfidenceText" FontWeight="Bold" TextWrapping="Wrap" />
-            <TextBlock x:Name="DetailSourceTruthText" Foreground="#334155" TextWrapping="Wrap" />
-            <Grid x:Name="DetailContentKindGrid" ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="False">
-              <TextBlock x:Name="DetailReferenceContentKindText" Foreground="#9F1239" FontWeight="SemiBold" TextWrapping="Wrap" />
-              <TextBlock x:Name="DetailCurrentContentKindText" Grid.Column="1" Foreground="#166534" FontWeight="SemiBold" TextWrapping="Wrap" />
+      <Border Grid.Column="2" Classes="card" Padding="12">
+        <Grid RowDefinitions="Auto,*,*" RowSpacing="10">
+          <StackPanel Spacing="6">
+            <Grid ColumnDefinitions="*,Auto">
+              <TextBlock FontSize="15" FontWeight="SemiBold" Foreground="#172B4D" Text="Differences" />
+              <TextBlock x:Name="DifferenceCountText" Grid.Column="1" Foreground="#64748B" VerticalAlignment="Center" Text="" />
             </Grid>
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="6">
-            <Border Background="#FFF1F2" BorderBrush="#FCA5A5" BorderThickness="1" CornerRadius="4" Padding="7">
-              <StackPanel Spacing="2">
-                <TextBlock FontSize="11" FontWeight="Bold" Foreground="#9F1239" Text="REFERENCE — REQUIRED" />
-                <SelectableTextBlock x:Name="DetailReferenceText" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                <Border x:Name="DetailReferenceImageFrame" IsVisible="False" BorderBrush="#E11D48" BorderThickness="2" CornerRadius="3" Padding="2" HorizontalAlignment="Left">
-                  <Image x:Name="DetailReferenceImage" IsVisible="False" MaxHeight="90" Stretch="Uniform" HorizontalAlignment="Left" />
-                </Border>
-              </StackPanel>
-            </Border>
-            <Border Grid.Column="1" Background="#F0FDF4" BorderBrush="#86EFAC" BorderThickness="1" CornerRadius="4" Padding="7">
-              <StackPanel Spacing="2">
-                <TextBlock FontSize="11" FontWeight="Bold" Foreground="#166534" Text="CURRENT — FOUND" />
-                <SelectableTextBlock x:Name="DetailCurrentText" FontSize="18" FontWeight="SemiBold" TextWrapping="Wrap" />
-                <Border x:Name="DetailCurrentImageFrame" IsVisible="False" BorderBrush="#16A34A" BorderThickness="2" CornerRadius="3" Padding="2" HorizontalAlignment="Left">
-                  <Image x:Name="DetailCurrentImage" IsVisible="False" MaxHeight="90" Stretch="Uniform" HorizontalAlignment="Left" />
-                </Border>
-              </StackPanel>
-            </Border>
+            <ComboBox x:Name="FindingFilter" HorizontalAlignment="Stretch" SelectionChanged="FindingFilter_SelectionChanged" SelectedIndex="0">
+              <ComboBoxItem>All differences</ComboBoxItem>
+              <ComboBoxItem>Missing or added content</ComboBoxItem>
+              <ComboBoxItem>Table values and structure</ComboBoxItem>
+              <ComboBoxItem>Images and recognized text</ComboBoxItem>
+              <ComboBoxItem>Check yourself</ComboBoxItem>
+            </ComboBox>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+              <TextBlock x:Name="SelectionScopeText" Text="All changes · click a highlighted value to focus" TextWrapping="Wrap" Foreground="#64748B" FontSize="12" VerticalAlignment="Center" />
+              <Button x:Name="ShowAllChangesButton" Grid.Column="1" Click="ShowAllChanges_Click" IsVisible="False" Padding="8,3" FontSize="12">Show all</Button>
             </Grid>
-            <TextBlock FontWeight="SemiBold" Text="Where" />
-            <TextBlock x:Name="DetailLocationText" TextWrapping="Wrap" />
-            <Expander x:Name="DetailMoreExpander" Header="More details" HorizontalAlignment="Stretch">
-              <StackPanel Spacing="6">
-              <TextBlock x:Name="DetailCategoryText" TextWrapping="Wrap" />
-              <TextBlock x:Name="DetailActionText" Foreground="#334155" TextWrapping="Wrap" />
-              <TextBlock x:Name="DetailRepresentationText" TextWrapping="Wrap" IsVisible="False" />
-              <TextBlock x:Name="DetailPageNoteText" FontSize="11" Foreground="#64748B" TextWrapping="Wrap" IsVisible="False" />
-              <TextBlock x:Name="DetailReviewText" Foreground="#92400E" TextWrapping="Wrap" IsVisible="False" />
-              <SelectableTextBlock x:Name="DetailContextText" TextWrapping="Wrap" FontSize="12" />
-              </StackPanel>
-            </Expander>
           </StackPanel>
-          </ScrollViewer>
-        </Border>
-      </Grid>
+
+          <ListBox x:Name="DifferenceList"
+                   Grid.Row="1"
+                   SelectionChanged="DifferenceList_SelectionChanged"
+                   Background="Transparent"
+                   ScrollViewer.VerticalScrollBarVisibility="Auto"
+                   ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemTemplate>
+              <DataTemplate>
+                <Border Margin="0,2" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" ClipToBounds="True">
+                  <Grid ColumnDefinitions="4,*">
+                    <Border Background="{Binding Accent}" />
+                    <StackPanel Grid.Column="1" Spacing="2" Margin="10,7">
+                      <TextBlock FontWeight="SemiBold" Foreground="#172B4D" TextWrapping="Wrap" Text="{Binding Operation}" />
+                      <TextBlock FontSize="11" FontWeight="SemiBold" Foreground="#2457C5" TextWrapping="Wrap" Text="{Binding TransitionAndCount}" IsVisible="{Binding HasTransition}" />
+                      <TextBlock FontSize="13" Foreground="#9F1239" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Text="{Binding Before}" />
+                      <TextBlock FontSize="13" FontWeight="SemiBold" Foreground="#166534" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Text="{Binding After}" />
+                      <TextBlock FontSize="11" Foreground="#64748B" TextWrapping="Wrap" MaxLines="2" TextTrimming="CharacterEllipsis" Text="{Binding LineDescription}" />
+                    </StackPanel>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+
+          <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="8" Padding="12">
+            <Panel>
+              <TextBlock x:Name="DetailEmptyText" Foreground="#64748B" TextWrapping="Wrap" TextAlignment="Center" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="12"
+                         Text="Select a difference in the list, or click a highlight in either document, to see it explained here." />
+              <ScrollViewer x:Name="DetailScrollViewer" IsVisible="False" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="9">
+                  <TextBlock x:Name="DetailOperationText" FontSize="16" FontWeight="SemiBold" Foreground="#172B4D" TextWrapping="Wrap" />
+                  <TextBlock x:Name="DetailConfidenceText" FontWeight="SemiBold" TextWrapping="Wrap" Padding="8,5" Background="#FFFBEB" />
+                  <TextBlock x:Name="DetailReviewText" Foreground="#92400E" TextWrapping="Wrap" IsVisible="False" />
+                  <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Border Background="#FFF1F2" BorderBrush="#FECDD3" BorderThickness="1" CornerRadius="6" Padding="9,7">
+                      <StackPanel Spacing="3">
+                        <TextBlock Classes="caption" Foreground="#9F1239" Text="APPROVED · REFERENCE" />
+                        <SelectableTextBlock x:Name="DetailReferenceText" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <Border x:Name="DetailReferenceImageFrame" IsVisible="False" BorderBrush="#E11D48" BorderThickness="2" CornerRadius="3" Padding="2" HorizontalAlignment="Left">
+                          <Image x:Name="DetailReferenceImage" IsVisible="False" MaxHeight="90" Stretch="Uniform" HorizontalAlignment="Left" />
+                        </Border>
+                      </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Background="#F0FDF4" BorderBrush="#BBF7D0" BorderThickness="1" CornerRadius="6" Padding="9,7">
+                      <StackPanel Spacing="3">
+                        <TextBlock Classes="caption" Foreground="#166534" Text="CURRENT" />
+                        <SelectableTextBlock x:Name="DetailCurrentText" FontSize="17" FontWeight="SemiBold" TextWrapping="Wrap" />
+                        <Border x:Name="DetailCurrentImageFrame" IsVisible="False" BorderBrush="#16A34A" BorderThickness="2" CornerRadius="3" Padding="2" HorizontalAlignment="Left">
+                          <Image x:Name="DetailCurrentImage" IsVisible="False" MaxHeight="90" Stretch="Uniform" HorizontalAlignment="Left" />
+                        </Border>
+                      </StackPanel>
+                    </Border>
+                  </Grid>
+                  <TextBlock x:Name="DetailSourceTruthText" Foreground="#334155" TextWrapping="Wrap" />
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="caption" Text="WHERE" />
+                    <TextBlock x:Name="DetailLocationText" Foreground="#334155" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <StackPanel Spacing="2">
+                    <TextBlock Classes="caption" Text="WHAT TO DO" />
+                    <TextBlock x:Name="DetailActionText" Foreground="#334155" TextWrapping="Wrap" />
+                  </StackPanel>
+                  <Expander x:Name="DetailMoreExpander" Header="More details" HorizontalAlignment="Stretch">
+                    <StackPanel Spacing="6">
+                      <TextBlock x:Name="DetailCategoryText" TextWrapping="Wrap" />
+                      <Grid x:Name="DetailContentKindGrid" ColumnDefinitions="*,*" ColumnSpacing="6" IsVisible="False">
+                        <TextBlock x:Name="DetailReferenceContentKindText" Foreground="#9F1239" TextWrapping="Wrap" />
+                        <TextBlock x:Name="DetailCurrentContentKindText" Grid.Column="1" Foreground="#166534" TextWrapping="Wrap" />
+                      </Grid>
+                      <TextBlock x:Name="DetailRepresentationText" TextWrapping="Wrap" IsVisible="False" />
+                      <TextBlock x:Name="DetailPageNoteText" FontSize="11" Foreground="#64748B" TextWrapping="Wrap" IsVisible="False" />
+                      <SelectableTextBlock x:Name="DetailContextText" TextWrapping="Wrap" FontSize="12" Foreground="#475569" />
+                    </StackPanel>
+                  </Expander>
+                </StackPanel>
+              </ScrollViewer>
+            </Panel>
+          </Border>
+        </Grid>
       </Border>
     </Grid>
 
-    <Expander Grid.Row="4" Header="Comparison coverage and review guidance" HorizontalAlignment="Stretch">
-      <TextBlock x:Name="CoverageText" Foreground="#526171" FontSize="12" TextWrapping="Wrap"
-                 Text="Body text, headers, footers, footnotes, endnotes, direct formatting, basic tables and embedded images are checked. Page-number and date fields in headers and footers are compared as fields, not as their printed values. Inherited styles, complete page layout and unsupported Word parts are not fully verified. OCR values need review. Only identical file hashes establish an exact file match." />
+    <!-- 4. What is and is not checked -->
+    <Expander Grid.Row="3" Header="What this tool checks, and what to check yourself" HorizontalAlignment="Stretch">
+      <TextBlock x:Name="CoverageText" Foreground="#475569" FontSize="12" TextWrapping="Wrap"
+                 Text="Checked: body text, headers, footers, footnotes, endnotes, direct formatting (including hidden text), symbols, tables and embedded images. Page-number and date fields in headers and footers are compared as fields, not as their printed values. Check yourself: values read from images (OCR), equations, list numbering, styles inherited from templates, page layout, and anything marked amber. Only an identical file (same bytes) is reported as an exact match." />
     </Expander>
   </Grid>
 </Window>

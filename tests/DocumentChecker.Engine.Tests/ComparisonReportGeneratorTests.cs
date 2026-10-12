@@ -8,6 +8,7 @@ namespace DocumentChecker.Engine.Tests;
 public sealed class ComparisonReportGeneratorTests
 {
     [Fact]
+    [Trait("TC", "TC-RPT-01")]
     public void Generate_creates_a_pdf_only_when_explicitly_called()
     {
         var outputPath = Environment.GetEnvironmentVariable("DOCHECK_PDF_OUTPUT")

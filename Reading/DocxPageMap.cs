@@ -72,7 +72,7 @@ internal sealed class DocxPageMap
                         atPageStart = false;
                         explicitBreakPending = false;
                         break;
-                    case TabChar or Break or CarriageReturn or NoBreakHyphen or SoftHyphen:
+                    case TabChar or Break or CarriageReturn or NoBreakHyphen or SoftHyphen or SymbolChar:
                         offset++;
                         atPageStart = false;
                         explicitBreakPending = false;

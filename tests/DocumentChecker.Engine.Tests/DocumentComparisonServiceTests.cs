@@ -11,6 +11,8 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     private readonly string _temporaryDirectory = Path.Combine(Path.GetTempPath(), $"DocumentChecker.Tests.{Guid.NewGuid():N}");
 
     [Fact]
+    [Trait("TC", "TC-TXT-01")]
+    [Trait("TC", "TC-FMT-02")]
     public void Compare_finds_paired_text_and_subscript_formatting_differences()
     {
         var reference = CreateDocument("reference.docx", body =>
@@ -40,6 +42,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-FMT-01")]
     public void Merged_runs_do_not_hide_formula_subscripts_in_body_or_tables()
     {
         Paragraph Formula(bool subscript) => subscript
@@ -55,6 +58,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-FMT-03")]
     public void Formatting_follows_text_after_insertions_and_ignores_equivalent_run_splitting()
     {
         var reference = CreateDocument("reference-runs.docx", b => b.Append(new Paragraph(new Run(new Text("AB")), new Run(new RunProperties(new VerticalTextAlignment { Val = VerticalPositionValues.Superscript }), new Text("2")))));
@@ -69,6 +73,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-RES-01")]
     public void Compare_returns_exact_file_match_for_the_same_file()
     {
         var path = CreateDocument("same.docx", body => body.Append(new Paragraph(new Run(new Text("Same content")))));
@@ -80,6 +85,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-RES-02")]
     public void Compare_ignores_package_and_metadata_differences_when_visible_content_matches()
     {
         var reference = CreateDocument("reference.docx", body => body.Append(new Paragraph(new Run(new Text("Same visible content")))));
@@ -93,6 +99,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-ALN-01")]
     public void Compare_aligns_an_inserted_paragraph_without_marking_later_paragraphs_as_changed()
     {
         var reference = CreateDocument("reference.docx", body =>
@@ -117,6 +124,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TXT-04")]
     public void Compare_detects_a_line_missing_from_the_current_document()
     {
         var reference = CreateDocument("reference.docx", body => body.Append(new Paragraph(new Run(new Text("Required line")))));
@@ -131,6 +139,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TXT-05")]
     public void Compare_detects_extra_or_missing_whitespace()
     {
         var reference = CreateDocument("reference-spaces.docx", body =>
@@ -146,6 +155,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-FMT-04")]
     public void Compare_detects_paragraph_alignment_and_spacing_changes()
     {
         var reference = CreateDocument("reference-layout.docx", body => body.Append(new Paragraph(
@@ -168,6 +178,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-RD-01")]
     public void Reader_extracts_table_cell_paragraphs_for_comparison()
     {
         var path = CreateDocument("table.docx", body =>
@@ -185,6 +196,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-RD-02")]
     public void Reader_preserves_document_display_blocks_and_paragraph_layout()
     {
         var path = CreateDocument("presentation.docx", body =>
@@ -209,6 +221,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TBL-01")]
     public void Compare_detects_table_cell_data_and_reports_table_cell_location()
     {
         var reference = CreateDocument("reference-table.docx", body => body.Append(
@@ -228,6 +241,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TBL-02")]
     public void Compare_reports_when_a_table_exists_on_only_one_side()
     {
         var reference = CreateDocument("reference-table-only.docx", body => body.Append(
@@ -241,11 +255,10 @@ public sealed class DocumentComparisonServiceTests : IDisposable
         Assert.Equal("(no corresponding table)", difference.CurrentValue);
     }
 
-    [Fact]
+    [OcrFact]
+    [Trait("TC", "TC-IMG-01")]
     public void Compare_reads_changed_words_from_embedded_images_in_docx()
     {
-        if (!OperatingSystem.IsWindows())
-            return;
         var reference = CreateDocument("reference-image.docx", _ => { });
         var current = CreateDocument("current-image.docx", _ => { });
         AddImage(reference, "Payment terms: 30 days", "rIdReference");
@@ -282,6 +295,7 @@ public sealed class DocumentComparisonServiceTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-IN-01")]
     public void Reader_reports_a_clear_message_when_a_document_is_locked()
     {
         var path = CreateDocument("locked.docx", body => body.Append(new Paragraph(new Run(new Text("Locked")))));

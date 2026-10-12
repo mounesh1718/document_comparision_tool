@@ -13,6 +13,7 @@ public sealed class NoiseReductionTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), $"DocumentChecker.Noise.{Guid.NewGuid():N}");
 
     [Fact]
+    [Trait("TC", "TC-RD-03")]
     public void Merged_cells_are_read_with_their_grid_position_and_span()
     {
         var path = Create("merged.docx", body => body.Append(MergedTable("250 mg")));
@@ -33,6 +34,7 @@ public sealed class NoiseReductionTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TBL-05")]
     public void Identical_merged_tables_produce_no_findings_and_a_changed_value_is_found()
     {
         var reference = Create("merged-reference.docx", body => body.Append(MergedTable("250 mg")));
@@ -46,6 +48,7 @@ public sealed class NoiseReductionTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TBL-06")]
     public void Text_inside_a_nested_table_is_compared_without_a_review_warning()
     {
         Table Outer(string value) => new(new TableRow(new TableCell(Text("Outer"), new Table(new TableRow(new TableCell(Text(value)))), Text("After"))));
@@ -61,6 +64,7 @@ public sealed class NoiseReductionTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TBL-07")]
     public void A_table_inserted_in_the_middle_does_not_shift_the_tables_after_it()
     {
         Table Simple(string name, string value) => new(new TableRow(new TableCell(Text(name)), new TableCell(Text(value))));
@@ -91,6 +95,7 @@ public sealed class NoiseReductionTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-IMG-07")]
     public void Images_below_new_content_are_not_reported_as_moved_and_a_new_image_is_reported_as_added()
     {
         var reference = Create("images-reference.docx", body =>

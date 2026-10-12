@@ -16,7 +16,7 @@ public sealed class DocumentComparisonService
 
     public DocumentComparisonService(IImageTextReader? imageTextReader = null)
     {
-        _imageTextReader = imageTextReader ?? new WindowsImageTextReader();
+        _imageTextReader = imageTextReader ?? new SystemImageTextReader();
     }
 
     public ComparisonResult Compare(string? referencePath, string? currentPath)
@@ -476,7 +476,20 @@ public sealed class DocumentComparisonService
     private IEnumerable<DocumentDifference> CompareTablePair(TableDisplayBlock reference, TableDisplayBlock current)
     {
         var differences = new List<DocumentDifference>();
-        if (reference.Rows.Count != current.Rows.Count)
+        var referenceHeaders = reference.Rows.FirstOrDefault()?.Cells ?? [];
+        var currentHeaders = current.Rows.FirstOrDefault()?.Cells ?? [];
+        var columnPairs = TableAlignment.Align(referenceHeaders, currentHeaders, CellValue);
+        var useHeaders = UniqueNonEmpty(referenceHeaders.Select(CellValue)) && UniqueNonEmpty(currentHeaders.Select(CellValue)) &&
+            referenceHeaders.Select(CellValue).Intersect(currentHeaders.Select(CellValue)).Any();
+        var useRowKeys = UniqueNonEmpty(reference.Rows.Select(RowKey)) && UniqueNonEmpty(current.Rows.Select(RowKey));
+        var rowPairs = TableAlignment.Align(reference.Rows, current.Rows,
+            row => useRowKeys ? RowKey(row) : string.Join("\u001f", row.Cells.Select(CellValue)));
+
+        // A changed row count is reported on its own only when the added or missing rows are not already
+        // reported value by value below; otherwise one deleted row would be counted twice.
+        var rowsReportedByValue = rowPairs.Any(pair => (pair.Reference is null) != (pair.Current is null) &&
+            (pair.Reference ?? pair.Current)!.Cells.Any(cell => cell.Paragraphs.Count > 0));
+        if (reference.Rows.Count != current.Rows.Count && !rowsReportedByValue)
         {
             differences.Add(CreateTableDifference(
                 reference,
@@ -487,14 +500,7 @@ public sealed class DocumentComparisonService
                 "Table row count changed."));
         }
 
-        var referenceHeaders = reference.Rows.FirstOrDefault()?.Cells ?? [];
-        var currentHeaders = current.Rows.FirstOrDefault()?.Cells ?? [];
-        var columnPairs = TableAlignment.Align(referenceHeaders, currentHeaders, CellValue);
-        var useHeaders = UniqueNonEmpty(referenceHeaders.Select(CellValue)) && UniqueNonEmpty(currentHeaders.Select(CellValue)) &&
-            referenceHeaders.Select(CellValue).Intersect(currentHeaders.Select(CellValue)).Any();
-        var useRowKeys = UniqueNonEmpty(reference.Rows.Select(RowKey)) && UniqueNonEmpty(current.Rows.Select(RowKey));
-        foreach (var (referenceRow, currentRow) in TableAlignment.Align(reference.Rows, current.Rows,
-                     row => useRowKeys ? RowKey(row) : string.Join("\u001f", row.Cells.Select(CellValue))))
+        foreach (var (referenceRow, currentRow) in rowPairs)
         {
             if (referenceRow is null || currentRow is null)
             {
@@ -789,7 +795,8 @@ public sealed class DocumentComparisonService
         new("Superscript", reference.Superscript, current.Superscript),
         new("Font color", reference.FontColor, current.FontColor),
         new("Highlight", reference.Highlight, current.Highlight),
-        new("Character spacing", reference.CharacterSpacingTwips, current.CharacterSpacingTwips)
+        new("Character spacing", reference.CharacterSpacingTwips, current.CharacterSpacingTwips),
+        new("Hidden", reference.Hidden, current.Hidden)
     ];
 
     private static IEnumerable<ParagraphFormattingProperty> ParagraphFormattingProperties(ParagraphLayout reference, ParagraphLayout current) =>
@@ -835,10 +842,17 @@ public sealed class DocumentComparisonService
         _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? "(not specified)"
     };
 
-    private static string DisplayFormattingValue(string property, object? value) =>
-        value is null && property is "Bold" or "Italic" or "Strikethrough" or "Subscript" or "Superscript"
-            ? "Off"
-            : DisplayValue(value);
+    /// <summary>
+    /// A formatting value as shown to the reviewer. "Not set" reads as the value Word then uses, so an explicit
+    /// default (underline "none", colour "auto", highlight "none") is not reported as a change.
+    /// </summary>
+    private static string DisplayFormattingValue(string property, object? value) => (property, value) switch
+    {
+        ("Bold" or "Italic" or "Strikethrough" or "Subscript" or "Superscript" or "Hidden", null) => "Off",
+        ("Underline" or "Highlight", null) => "none",
+        ("Font color", null) => "auto",
+        _ => DisplayValue(value)
+    };
 
     private static string DisplayParagraphFormattingValue(object? value) => value switch
     {
@@ -848,9 +862,13 @@ public sealed class DocumentComparisonService
         _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? "Default"
     };
 
-    private static string NormalizeAlignment(string? alignment) => string.IsNullOrWhiteSpace(alignment)
-        ? "left"
-        : alignment.ToLowerInvariant();
+    // Newer files write "start" and "end" for left and right.
+    private static string NormalizeAlignment(string? alignment) => alignment?.ToLowerInvariant() switch
+    {
+        null or "" or "start" => "left",
+        "end" => "right",
+        var value => value
+    };
 
     private static string Nearby(string referenceText, string currentText) =>
         $"Reference: {Trim(referenceText)} | Current: {Trim(currentText)}";

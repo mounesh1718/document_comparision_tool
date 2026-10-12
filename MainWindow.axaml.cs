@@ -39,12 +39,41 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         HookOverviewUpdates();
+        ShowWelcome();
+    }
+
+    /// <summary>Before the first comparison, each page explains what belongs there and what to do next.</summary>
+    private void ShowWelcome()
+    {
+        ReferenceDocumentPanel.Children.Add(CreateGuide("#9F1239", "The approved document goes here",
+            "This is the Reference: the version that was signed off. Choose it with ① above."));
+        CurrentDocumentPanel.Children.Add(CreateGuide("#166534", "The document to check goes here",
+            "This is the Current version. Choose it with ②, then click Compare. Every difference is highlighted here, " +
+            "next to the same place in the approved document, and listed on the right."));
+    }
+
+    private static Control CreateGuide(string color, string title, string text) => new StackPanel
+    {
+        Spacing = 8,
+        Margin = new Thickness(8, 40),
+        Children =
+        {
+            new TextBlock { Text = title, FontSize = 18, FontWeight = FontWeight.SemiBold, Foreground = new SolidColorBrush(Color.Parse(color)), TextWrapping = TextWrapping.Wrap },
+            new TextBlock { Text = text, FontSize = 14, Foreground = new SolidColorBrush(Color.Parse("#475569")), TextWrapping = TextWrapping.Wrap }
+        }
+    };
+
+    /// <summary>Shows the file name of a chosen document; the full path is in its tooltip.</summary>
+    private static void ShowChosenFile(TextBlock target, string? path)
+    {
+        target.Text = string.IsNullOrWhiteSpace(path) ? "Not chosen yet" : Path.GetFileName(path);
+        ToolTip.SetTip(target, path);
     }
 
     private async void SelectReference_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _referencePath = await SelectDocxAsync("Select the approved Reference DOCX");
-        ReferencePathText.Text = _referencePath ?? "No Reference document selected";
+        ShowChosenFile(ReferencePathText, _referencePath);
         ConfigureWatcher(isReference: true, _referencePath);
         UpdateButtons();
     }
@@ -52,7 +81,7 @@ public partial class MainWindow : Window
     private async void SelectCurrent_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _currentPath = await SelectDocxAsync("Select the Current DOCX to verify");
-        CurrentPathText.Text = _currentPath ?? "No Current document selected";
+        ShowChosenFile(CurrentPathText, _currentPath);
         ConfigureWatcher(isReference: false, _currentPath);
         UpdateButtons();
     }
@@ -72,7 +101,7 @@ public partial class MainWindow : Window
         }
         _comparing = true;
         UpdateButtons();
-        StatusText.Text = "Comparing text, tables and image content…";
+        StatusText.Text = "Comparing the two documents…";
         var referencePath = _referencePath;
         var currentPath = _currentPath;
         try
@@ -107,12 +136,15 @@ public partial class MainWindow : Window
             return;
         }
 
+        var reviewCount = _comparisonResult.Differences.Count(RequiresReview);
         StatusText.Text = _comparisonResult.Status switch
         {
-            ComparisonStatus.ExactFileMatch => "Exact File Match - the files have identical SHA-256 hashes.",
-            ComparisonStatus.DocumentDataMatch => "No differences found in checked content. See comparison coverage below.",
-            _ => $"{_comparisonResult.Differences.Count} findings | {_comparisonResult.Differences.Count(d => d.ReviewNote is not null)} need review"
+            ComparisonStatus.ExactFileMatch => "✓ Exact File Match: the two files are identical, byte for byte.",
+            ComparisonStatus.DocumentDataMatch => "✓ No differences found in the checked content. See what is checked at the bottom.",
+            _ => $"{Plural(_comparisonResult.Differences.Count, "difference")} found" +
+                 (reviewCount == 0 ? string.Empty : $" · {reviewCount} to check yourself")
         };
+        LegendPanel.IsVisible = _comparisonResult.Status == ComparisonStatus.Different;
 
         _navigatorItems = BuildNavigatorItems(_comparisonResult.Differences);
         ShowNavigatorItems(_navigatorItems, null);
@@ -132,6 +164,8 @@ public partial class MainWindow : Window
     /// The real change (not a review item) that comes first when reading the Current document. Changes that
     /// exist only in the Reference are placed by the Current paragraph their Reference paragraph pairs with.
     /// </summary>
+    private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
+
     private DocumentDifference? FirstChangeInDocument() => _comparisonResult!.Differences
         .Where(difference => !RequiresReview(difference))
         .OrderBy(difference => difference.CurrentLocation?.ParagraphIndex
@@ -238,7 +272,7 @@ public partial class MainWindow : Window
     private void HighlightToggle_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         _showChangeMarkers = !_showChangeMarkers;
-        HighlightToggleButton.Content = _showChangeMarkers ? "Hide markers" : "Show markers";
+        HighlightToggleButton.Content = _showChangeMarkers ? "Hide highlights" : "Show highlights";
         RenderDocuments();
     }
 
@@ -289,6 +323,7 @@ public partial class MainWindow : Window
         var needsReview = RequiresReview(difference);
         DetailConfidenceText.Text = needsReview ? "REVIEW REQUIRED — check the original evidence." : "READ FROM DOCX — check the paired values and locations.";
         DetailConfidenceText.Foreground = new SolidColorBrush(Color.Parse(needsReview ? "#92400E" : "#166534"));
+        DetailConfidenceText.Background = new SolidColorBrush(Color.Parse(needsReview ? "#FFFBEB" : "#F0FDF4"));
         DetailConfidenceText.IsVisible = needsReview;
         DetailSourceTruthText.Text = BuildSourceTruthExplanation(difference);
         DetailActionText.Text = BuildUserAction(difference);
@@ -303,6 +338,9 @@ public partial class MainWindow : Window
         DetailReviewText.Text = needsReview ? "Why review is required: " + (difference.ReviewNote ?? "This document part needs manual verification.") : string.Empty;
         DetailReviewText.IsVisible = needsReview;
         UpdateImageDetails(difference);
+        ShowDetails();
+        var position = _navigatorItems.ToList().FindIndex(navigatorItem => navigatorItem.Difference.Id == difference.Id);
+        PositionText.Text = position < 0 ? string.Empty : $"{position + 1} of {_navigatorItems.Count}";
         if (item is not null)
             DifferenceList.ScrollIntoView(item);
         RenderDocuments();
@@ -363,8 +401,9 @@ public partial class MainWindow : Window
     {
         _documentZoom = Math.Clamp(Math.Round(zoom, 1), 0.7, 1.8);
         ZoomText.Text = $"{_documentZoom:P0}";
-        ReferencePageSurface.Width = 900 * _documentZoom;
-        CurrentPageSurface.Width = 900 * _documentZoom;
+        // Pages fit their pane; zoom changes the text size and how wide a page may grow.
+        ReferencePageSurface.MaxWidth = 900 * _documentZoom;
+        CurrentPageSurface.MaxWidth = 900 * _documentZoom;
         RenderDocuments();
     }
 
@@ -833,7 +872,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>A cell's first grid column; cells built without grid positions use their place in the row.</summary>
-    private static int GridColumnOf(DocumentTableCell cell, int indexInRow) => cell.GridColumn >= 0 ? cell.GridColumn : indexInRow;
+    private static int GridColumnOf(DocumentTableCell cell, int indexInRow) => FindingText.GridColumnOf(cell, indexInRow);
 
     private Control CreateTableContent(
         TableDisplayBlock table,
@@ -951,7 +990,8 @@ public partial class MainWindow : Window
 
     private Control CreateFragment(DisplayFragment fragment, RunFormatting formatting, bool isReference, ParagraphLayout? layout)
     {
-        var text = new TextBlock();
+        // Long text wraps at word boundaries inside the pane instead of running past its edge or splitting words.
+        var text = new TextBlock { TextWrapping = TextWrapping.WrapWithOverflow };
         var inline = new Run(fragment.Text);
         text.Inlines!.Add(inline);
         ApplyFormatting(text, formatting);
@@ -1147,7 +1187,7 @@ public partial class MainWindow : Window
     private void ShowNavigatorItems(IReadOnlyList<NavigatorItem> items, string? scope)
     {
         DifferenceList.ItemsSource = items;
-        DifferenceCountText.Text = scope is null ? $"{items.Count} findings" : $"{items.Count} of {_navigatorItems.Count}";
+        DifferenceCountText.Text = scope is null ? $"{items.Count} total" : $"{items.Count} of {_navigatorItems.Count}";
         SelectionScopeText.Text = scope ?? "All changes · click a highlighted value to focus";
         ShowAllChangesButton.IsVisible = scope is not null;
     }
@@ -1227,30 +1267,7 @@ public partial class MainWindow : Window
             : $"paragraph:{location.ParagraphIndex}";
     }
 
-    private static string GetOperation(DocumentDifference difference) => difference.Category switch
-    {
-        DifferenceCategory.Review => "Needs review",
-        DifferenceCategory.Text when IsSpaceChange(difference) => difference.CurrentValue == "(no corresponding content)" ? "Space missing in Current" : "Spacing changed",
-        _ when difference.Property == "Missing row value" => "Row missing from Current",
-        _ when difference.Property == "Missing column value" => "Column missing from Current",
-        _ when difference.Property == "Paragraph alignment" => "Text alignment changed",
-        DifferenceCategory.Formatting when difference.Property is "Subscript" or "Superscript" =>
-            difference.Property + (difference.ReferenceValue == "On" ? " removed" : " added"),
-        DifferenceCategory.Formatting => difference.Property + " changed",
-        _ when difference.Property.Contains("row value") || difference.Property.Contains("column value") => difference.Property,
-        DifferenceCategory.ParagraphAdded => "Inserted paragraph",
-        DifferenceCategory.ParagraphRemoved => "Deleted paragraph",
-        DifferenceCategory.Table when difference.ReferenceValue == "(no corresponding table)" => "Table added in Current",
-        DifferenceCategory.Table when difference.CurrentValue == "(no corresponding table)" => "Table missing from Current",
-        DifferenceCategory.Table => "Table changed",
-        DifferenceCategory.Image when difference.ReferenceValue == "(no corresponding image)" => "Image added in Current",
-        DifferenceCategory.Image when difference.CurrentValue == "(no corresponding image)" => "Image missing from Current",
-        DifferenceCategory.Image when difference.IsRecognizedText => "Possible text change in image",
-        DifferenceCategory.Image => difference.Property,
-        DifferenceCategory.Text when difference.ReferenceValue == "(no corresponding content)" => "Inserted text",
-        DifferenceCategory.Text when difference.CurrentValue == "(no corresponding content)" => "Deleted text",
-        _ => "Text changed"
-    };
+    private static string GetOperation(DocumentDifference difference) => FindingText.Operation(difference);
 
     private static string BuildNavigatorSummary(DocumentDifference difference)
     {
@@ -1295,6 +1312,12 @@ public partial class MainWindow : Window
             return $"Reference uses {referenceKind}; Current uses {currentKind}. The document structure has changed.";
         if (difference.Property == "Paragraph alignment")
             return $"Alignment is wrong: Reference requires {reference} alignment; Current uses {current} alignment.";
+        if (difference.Property == "Hidden")
+            return difference.CurrentValue == "On"
+                ? "This text is visible in the approved document but hidden in Current, so it will not appear when Current is printed or read."
+                : "This text is hidden in the approved document but visible in Current.";
+        if (difference.Category == DifferenceCategory.Formatting)
+            return $"{difference.Property} is “{reference}” in the approved document but “{current}” in Current. The text itself is the same.";
         if (string.Equals(difference.ReferenceValue, difference.CurrentValue, StringComparison.Ordinal))
             return $"The {difference.Property.ToLowerInvariant()} differs: Reference requires “{reference}”; Current uses “{current}”.";
         return $"Reference requires “{reference}”; Current contains “{current}”.";
@@ -1302,9 +1325,7 @@ public partial class MainWindow : Window
 
     private static string ShortDetailValue(string value) => value.Length <= 120 ? value : value[..117] + "…";
 
-    private static bool IsSpaceChange(DocumentDifference d) => d.Category == DifferenceCategory.Text &&
-        (d.ReferenceValue.Length > 0 && string.IsNullOrWhiteSpace(d.ReferenceValue) ||
-         d.CurrentValue.Length > 0 && string.IsNullOrWhiteSpace(d.CurrentValue));
+    private static bool IsSpaceChange(DocumentDifference d) => FindingText.IsSpaceChange(d);
 
     private static string WhitespaceName(string value) => value == " " ? "a space" :
         value.All(c => c == ' ') ? $"{value.Length} spaces" : value == "\t" ? "a tab" : "spacing";
@@ -1345,6 +1366,10 @@ public partial class MainWindow : Window
             return "Recommended action: remove the extra Current content or approve it as an intentional change.";
         if (difference.Property == "Paragraph alignment")
             return $"Recommended action: set Current alignment to {reference}.";
+        if (difference.Property == "Hidden")
+            return difference.CurrentValue == "On"
+                ? "Recommended action: unhide this text in Current (in Word: Font, clear \"Hidden\"), or confirm the removal was intended."
+                : "Recommended action: hide this text in Current again, or confirm it should now be visible.";
         if (difference.Category == DifferenceCategory.Formatting)
             return $"Recommended action: change Current {difference.Property.ToLowerInvariant()} to match Reference ({reference}).";
         if (RequiresReview(difference))
@@ -1447,6 +1472,9 @@ public partial class MainWindow : Window
             text.TextDecorations = TextDecorations.Underline;
         if (formatting.Strikethrough == true)
             text.TextDecorations = new TextDecorationCollection((text.TextDecorations ?? []).Concat(TextDecorations.Strikethrough));
+        // Hidden text does not print; it is shown faded so the reviewer can still see and select it.
+        if (formatting.Hidden == true)
+            text.Opacity = 0.45;
         if (formatting.Subscript == true || formatting.Superscript == true)
         {
             var normalSize = text.FontSize;
@@ -1554,13 +1582,24 @@ public partial class MainWindow : Window
         _referenceViewport = _currentViewport = null;
         _selectedMatch = null;
         NextReviewButton.IsVisible = false;
+        LegendPanel.IsVisible = false;
         ReferenceDocumentName.Text = keepSelectedFileNames ? Path.GetFileName(_referencePath) : "No document selected";
         CurrentDocumentName.Text = keepSelectedFileNames ? Path.GetFileName(_currentPath) : "No document selected";
         ClearDetails();
     }
 
+    /// <summary>Shows the explanation panel instead of its "select a difference" hint.</summary>
+    private void ShowDetails()
+    {
+        DetailEmptyText.IsVisible = false;
+        DetailScrollViewer.IsVisible = true;
+    }
+
     private void ClearDetails()
     {
+        DetailEmptyText.IsVisible = true;
+        DetailScrollViewer.IsVisible = false;
+        PositionText.Text = string.Empty;
         DetailOperationText.Text = string.Empty;
         DetailCategoryText.Text = "Select a highlighted difference to see details.";
         DetailConfidenceText.Text = string.Empty;
@@ -1600,5 +1639,19 @@ public partial class MainWindow : Window
         string TransitionAndCount,
         string Summary,
         string Before,
-        string After);
+        string After)
+    {
+        /// <summary>Only a change of representation (Image → Table) is worth a line of its own in the list, not "Missing → Text".</summary>
+        public bool HasTransition => TransitionAndCount.Contains('→') && !TransitionAndCount.Contains("Missing");
+
+        /// <summary>The stripe colour, matching the highlight in the documents: amber to check, pink missing/formatting, blue otherwise.</summary>
+        public IBrush Accent => RequiresReview(Difference) ? AccentReview
+            : Difference.Category == DifferenceCategory.Formatting || IsMissingFromCurrent(Difference) ||
+              GetDisplayContentKind(Difference, isReference: true) == DifferenceContentKind.Missing ? AccentMissing
+            : AccentChange;
+    }
+
+    private static readonly IBrush AccentReview = new SolidColorBrush(Color.Parse("#F59E0B"));
+    private static readonly IBrush AccentMissing = new SolidColorBrush(Color.Parse("#F472B6"));
+    private static readonly IBrush AccentChange = new SolidColorBrush(Color.Parse("#60A5FA"));
 }

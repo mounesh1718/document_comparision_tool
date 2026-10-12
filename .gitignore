@@ -19,3 +19,5 @@ TestResults/
 *.docx
 *.doc
 !tests/**/*.docx.keep
+# Synthetic sample documents for manual testing (no real or confidential content)
+!samples/*.docx

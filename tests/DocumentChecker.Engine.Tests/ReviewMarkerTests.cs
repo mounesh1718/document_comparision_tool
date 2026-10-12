@@ -20,6 +20,7 @@ namespace DocumentChecker.Engine.Tests;
 public sealed class ReviewMarkerTests
 {
     [Fact]
+    [Trait("TC", "TC-ALN-02")]
     public void Edited_paragraphs_pair_by_similarity_and_review_items_have_locations()
     {
         var result = CompareSampleDocuments();
@@ -45,6 +46,7 @@ public sealed class ReviewMarkerTests
     }
 
     [Fact]
+    [Trait("TC", "TC-ALN-03")]
     public void Every_compared_paragraph_knows_its_counterpart_even_when_nothing_changed()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"DocumentChecker.Pairs.{Guid.NewGuid():N}");
@@ -80,6 +82,7 @@ public sealed class ReviewMarkerTests
     }
 
     [Fact]
+    [Trait("TC", "TC-ALN-04")]
     public void Paragraphs_rewritten_in_place_still_show_their_changed_words()
     {
         var directory = Path.Combine(Path.GetTempPath(), $"DocumentChecker.Rewrite.{Guid.NewGuid():N}");

@@ -13,6 +13,7 @@ public sealed class MixedComparisonTests : IDisposable
     private readonly string _directory = Path.Combine(Path.GetTempPath(), "DocCheck.Mixed." + Guid.NewGuid().ToString("N"));
 
     [Theory]
+    [Trait("TC", "TC-MIX-01")]
     [InlineData(true)]
     [InlineData(false)]
     public void Image_and_table_values_share_one_change_with_real_coordinates_and_cell_location(bool imageIsReference)
@@ -36,6 +37,7 @@ public sealed class MixedComparisonTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-MIX-02")]
     public void Matching_recognized_data_is_still_marked_for_review_and_representation_change()
     {
         var result = new DocumentComparisonService(new FixedReader(new([new("Quantity", new(0, 0, 90, 20)), new("30", new(120, 0, 30, 20))])))
@@ -47,6 +49,7 @@ public sealed class MixedComparisonTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-MIX-03")]
     public void Failed_OCR_never_invents_missing_or_matching_values()
     {
         var result = new DocumentComparisonService(new FixedReader(new([], "OCR unavailable")))
@@ -57,6 +60,7 @@ public sealed class MixedComparisonTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-MIX-04")]
     public void Column_major_OCR_is_mapped_by_row_label_and_spatial_columns()
     {
         var ocr = new ImageTextResult([
@@ -72,6 +76,7 @@ public sealed class MixedComparisonTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-MIX-05")]
     public void Ambiguous_image_grid_requires_review_instead_of_pairing_unrelated_values()
     {
         var result = new DocumentComparisonService(new FixedReader(new([new("Unreadable", new(10, 20, 50, 20))])))
@@ -81,6 +86,7 @@ public sealed class MixedComparisonTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-MIX-06")]
     public void Different_named_sections_are_not_paired()
     {
         var result = new DocumentComparisonService(new FixedReader(new([])))
@@ -89,6 +95,7 @@ public sealed class MixedComparisonTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TBL-03")]
     public void Missing_middle_row_does_not_shift_subsequent_values()
     {
         var reference = TableDocument("Reference.docx", [["Item", "Qty"], ["Sensor", "10"], ["Cable", "20"], ["Motor", "30"]]);
@@ -101,6 +108,7 @@ public sealed class MixedComparisonTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-TBL-04")]
     public void Missing_middle_column_does_not_shift_remaining_columns()
     {
         var reference = TableDocument("Reference.docx", [["Item", "Qty", "Price"], ["Sensor", "10", "120"]]);
@@ -112,6 +120,7 @@ public sealed class MixedComparisonTests : IDisposable
     }
 
     [Fact]
+    [Trait("TC", "TC-FMT-05")]
     public void Underline_and_highlight_values_remain_distinct_and_readable()
     {
         var reference = Create("Reference.docx", (main, body) => body.Append(new Paragraph(new Run(
@@ -123,10 +132,10 @@ public sealed class MixedComparisonTests : IDisposable
         Assert.Contains(result.Differences, d => d.ReferenceValue == "yellow" && d.CurrentValue == "green");
     }
 
-    [Fact]
-    public void Actual_Windows_OCR_compares_an_image_value_to_an_editable_table()
+    [OcrFact]
+    [Trait("TC", "TC-MIX-07")]
+    public void Actual_OCR_compares_an_image_value_to_an_editable_table()
     {
-        if (!OperatingSystem.IsWindows()) return;
         var result = new DocumentComparisonService().Compare(ImageDocument("Image.docx", "Quantity 30"), TableDocument("Table.docx", [["Quantity", "45"]]));
         Assert.Contains(result.Differences, d => d.IsRecognizedText && d.ReferenceValue == "30" && d.CurrentValue == "45" && d.CurrentRange is not null);
     }

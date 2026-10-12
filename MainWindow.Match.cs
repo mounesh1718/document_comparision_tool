@@ -95,7 +95,9 @@ public partial class MainWindow
             ? "MATCH — Current is the same as the approved Reference here."
             : "NOT PAIRED — check this content in the original documents.";
         DetailConfidenceText.Foreground = new SolidColorBrush(Color.Parse(paired ? "#166534" : "#92400E"));
+        DetailConfidenceText.Background = new SolidColorBrush(Color.Parse(paired ? "#F0FDF4" : "#FFFBEB"));
         DetailConfidenceText.IsVisible = true;
+        ShowDetails();
         DetailSourceTruthText.Text = paired
             ? "Reference and Current have the same text, spacing and direct formatting here. No action is needed." + TableNote(reference!, current!)
             : "This content was not compared with a specific paragraph in the other document, for example because it is part of an image/table replacement.";
