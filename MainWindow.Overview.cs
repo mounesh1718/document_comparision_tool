@@ -43,11 +43,13 @@ public partial class MainWindow
     {
         if (_closed)
             return;
-        _referenceViewport = DrawOverview(ReferenceOverview, ReferenceScrollViewer, ReferencePageSurface, _referenceAnchors, isReference: true);
-        _currentViewport = DrawOverview(CurrentOverview, CurrentScrollViewer, CurrentPageSurface, _currentAnchors, isReference: false);
+        _referenceViewport = DrawOverview(ReferenceOverview, ReferenceScrollViewer,
+            _exactMode ? ReferenceExactPanel : ReferencePageSurface, ActiveAnchors(isReference: true), isReference: true);
+        _currentViewport = DrawOverview(CurrentOverview, CurrentScrollViewer,
+            _exactMode ? CurrentExactPanel : CurrentPageSurface, ActiveAnchors(isReference: false), isReference: false);
     }
 
-    private Border? DrawOverview(Canvas canvas, ScrollViewer viewer, Border surface, IDictionary<string, Control> anchors, bool isReference)
+    private Border? DrawOverview(Canvas canvas, ScrollViewer viewer, Control surface, IDictionary<string, Control> anchors, bool isReference)
     {
         canvas.Children.Clear();
         var height = canvas.Bounds.Height;

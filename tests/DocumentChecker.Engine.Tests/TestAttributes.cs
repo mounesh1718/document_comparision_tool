@@ -15,6 +15,16 @@ public sealed class OcrFactAttribute : FactAttribute
     }
 }
 
+/// <summary>A test that lays documents out with LibreOffice. Where LibreOffice is not installed it is reported as skipped.</summary>
+public sealed class LibreOfficeFactAttribute : FactAttribute
+{
+    public LibreOfficeFactAttribute()
+    {
+        if (ExactView.PageLayoutConverter.FindLibreOffice() is null)
+            Skip = "Requires LibreOffice (free) to lay documents out as pages.";
+    }
+}
+
 /// <summary>
 /// A test for a known gap or defect (TC-GAP-xx in docs/TEST_CASES.md). It states the correct behaviour and fails
 /// until the gap is fixed, so it is skipped by default and shown as "Known gap" in every run.

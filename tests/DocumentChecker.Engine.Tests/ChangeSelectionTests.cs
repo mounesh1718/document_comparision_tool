@@ -18,6 +18,8 @@ public sealed class ChangeSelectionTests
 {
     [Fact]
     [Trait("TC", "TC-UI-01")]
+    [Trait("TC", "TC-UI-02")]
+    [Trait("TC", "TC-HIS-04")]
     public void Clicking_a_table_value_or_image_region_focuses_its_exact_change_and_supports_reselection()
     {
         Exception? failure = null;
@@ -229,6 +231,8 @@ public sealed class ChangeSelectionTests
             Assert.False(window.FindControl<Expander>("DetailMoreExpander")!.IsExpanded);
 
             ReviewMarkerTests.VerifyInWindow(window, Layout);
+            PageCompareWindowTests.Verify();
+            HistoryTests.VerifyWindow();
         }
         finally { window.Close(); }
     }

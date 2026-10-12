@@ -40,6 +40,22 @@ public partial class MainWindow : Window
         InitializeComponent();
         HookOverviewUpdates();
         ShowWelcome();
+        LabelOpenButtons();
+        Dispatcher.UIThread.UnhandledException += KeepRunningAfterError;
+    }
+
+    /// <summary>
+    /// An unexpected error in a click or redraw is reported in the status line instead of closing the window.
+    /// The documents are only read, so nothing is lost; the details go to the trace log for a bug report.
+    /// </summary>
+    private void KeepRunningAfterError(object? sender, DispatcherUnhandledExceptionEventArgs e)
+    {
+        if (e.Exception is OutOfMemoryException || _closed)
+            return;
+        e.Handled = true;
+        System.Diagnostics.Trace.TraceError(e.Exception.ToString());
+        StatusText.Text = $"Something went wrong ({e.Exception.GetType().Name}: {e.Exception.Message}). Your documents are not affected. " +
+                          "Click Compare to refresh the view, and please report this.";
     }
 
     /// <summary>Before the first comparison, each page explains what belongs there and what to do next.</summary>
@@ -124,6 +140,8 @@ public partial class MainWindow : Window
         _selectedDifferenceId = null;
         _selectedMatch = null;
         UpdateButtons();
+        OnComparisonChanged();
+        RecordHistory(_comparisonResult, referencePath, currentPath);
 
         if (!_comparisonResult.IsSuccess)
         {
@@ -164,6 +182,39 @@ public partial class MainWindow : Window
     /// The real change (not a review item) that comes first when reading the Current document. Changes that
     /// exist only in the Reference are placed by the Current paragraph their Reference paragraph pairs with.
     /// </summary>
+    /// <summary>Saves a completed comparison to the history. A problem saving it never stops the comparison.</summary>
+    private void RecordHistory(ComparisonResult result, string? referencePath, string? currentPath)
+    {
+        if (!result.IsSuccess || referencePath is null || currentPath is null)
+            return;
+        try
+        {
+            _history.Record(result, referencePath, currentPath);
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            System.Diagnostics.Trace.TraceWarning("The comparison could not be saved to the history: " + exception.Message);
+        }
+    }
+
+    private async void History_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        await new HistoryWindow(_history, CompareAgain).ShowDialog(this);
+
+    /// <summary>Loads both files of a saved comparison and compares them again.</summary>
+    private void CompareAgain(DocumentChecker.Engine.History.HistoryEntry entry)
+    {
+        _referencePath = entry.Reference.Path;
+        _currentPath = entry.Current.Path;
+        ShowChosenFile(ReferencePathText, _referencePath);
+        ShowChosenFile(CurrentPathText, _currentPath);
+        ConfigureWatcher(isReference: true, _referencePath);
+        ConfigureWatcher(isReference: false, _currentPath);
+        UpdateButtons();
+        _ = RunComparisonAsync(automatic: false);
+    }
+
+    private readonly DocumentChecker.Engine.History.ComparisonHistory _history = new();
+
     private static string Plural(int count, string noun) => count == 1 ? $"1 {noun}" : $"{count} {noun}s";
 
     private DocumentDifference? FirstChangeInDocument() => _comparisonResult!.Differences
@@ -257,9 +308,14 @@ public partial class MainWindow : Window
 
     private void DifferenceList_SelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
+        // Replacing the list's items can re-select an item by itself; only the user's (or code's explicit) choice counts.
+        if (_replacingListItems)
+            return;
         if (DifferenceList.SelectedItem is NavigatorItem item)
             SelectDifference(item.Difference);
     }
+
+    private bool _replacingListItems;
 
     private void PreviousDifference_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => MoveSelection(-1);
 
@@ -339,6 +395,7 @@ public partial class MainWindow : Window
         DetailReviewText.IsVisible = needsReview;
         UpdateImageDetails(difference);
         ShowDetails();
+        ShowOnPagesButton.IsVisible = true;
         var position = _navigatorItems.ToList().FindIndex(navigatorItem => navigatorItem.Difference.Id == difference.Id);
         PositionText.Text = position < 0 ? string.Empty : $"{position + 1} of {_navigatorItems.Count}";
         if (item is not null)
@@ -346,20 +403,8 @@ public partial class MainWindow : Window
         RenderDocuments();
         UpdateReviewButton();
 
-        Dispatcher.UIThread.Post(() =>
-        {
-            if (_selectedDifferenceId != difference.Id || _closed) return;
-            // Selection navigates to each side independently; proportional scrolling must not override its paired anchor.
-            _synchronizingScroll = true;
-            try
-            {
-            if (_referenceAnchors.TryGetValue(difference.Id, out var referenceAnchor))
-                referenceAnchor.BringIntoView();
-            if (_currentAnchors.TryGetValue(difference.Id, out var currentAnchor))
-                currentAnchor.BringIntoView();
-            }
-            finally { _synchronizingScroll = false; }
-        }, DispatcherPriority.Background);
+        // Selection navigates to each side independently; proportional scrolling must not override its paired anchor.
+        ScrollToSelection();
     }
 
     private void MoveSelection(int direction)
@@ -388,7 +433,8 @@ public partial class MainWindow : Window
         var targetScrollableHeight = Math.Max(0, target.Extent.Height - target.Viewport.Height);
         // Line-aligned panes show the same content at the same height, so they scroll by the same amount.
         // Without alignment, the panes keep the same proportional position.
-        var targetOffset = _panesAligned
+        // In Exact pages the two documents have their own page layout, so they keep the same proportional position.
+        var targetOffset = _panesAligned && !_exactMode
             ? Math.Clamp(source.Offset.Y, 0, targetScrollableHeight)
             : targetScrollableHeight * (sourceScrollableHeight == 0 ? 0 : Math.Clamp(source.Offset.Y / sourceScrollableHeight, 0, 1));
 
@@ -411,6 +457,12 @@ public partial class MainWindow : Window
     {
         if (_comparisonResult?.ReferenceDocument is null || _comparisonResult.CurrentDocument is null)
             return;
+        // Exact pages keep their page pictures; only the marks change. Reading view is redrawn when shown again.
+        if (_exactMode)
+        {
+            RefreshExactOverlays();
+            return;
+        }
 
         ReferenceDocumentPanel.Children.Clear();
         CurrentDocumentPanel.Children.Clear();
@@ -1186,7 +1238,15 @@ public partial class MainWindow : Window
 
     private void ShowNavigatorItems(IReadOnlyList<NavigatorItem> items, string? scope)
     {
-        DifferenceList.ItemsSource = items;
+        _replacingListItems = true;
+        try
+        {
+            DifferenceList.ItemsSource = items;
+        }
+        finally
+        {
+            _replacingListItems = false;
+        }
         DifferenceCountText.Text = scope is null ? $"{items.Count} total" : $"{items.Count} of {_navigatorItems.Count}";
         SelectionScopeText.Text = scope ?? "All changes · click a highlighted value to focus";
         ShowAllChangesButton.IsVisible = scope is not null;
@@ -1626,6 +1686,8 @@ public partial class MainWindow : Window
         _autoRefreshCancellation?.Dispose();
         _referenceWatcher?.Dispose();
         _currentWatcher?.Dispose();
+        ClearExactPages();
+        DeleteWorkFiles();
         base.OnClosed(e);
     }
 

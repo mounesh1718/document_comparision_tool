@@ -17,6 +17,7 @@ The automated test **TC-SMP-01** (`SampleDocumentTests`) compares these two file
 2. In **① Approved (Reference)**, click **Choose…** and pick `samples/Sample-Reference-RevA.docx`.
 3. In **② To check (Current)**, click **Choose…** and pick `samples/Sample-Current-RevB.docx`.
 4. Click **Compare**. The two documents appear side by side, with every difference highlighted and listed on the right.
+5. Optional: click **Exact pages** to see the real pages (laid out by Word or LibreOffice) with the differences marked on them, or **Open in Word** to open a read-only copy.
 
 ## Expected result
 

@@ -4,7 +4,7 @@
 |---|---|
 | **Version described** | Commit `bf00bbf` plus the fixes of 2026-10-12 |
 | **Requirements** | [REQUIREMENTS.md](REQUIREMENTS.md). The **Req** column links each test case to a requirement ID. |
-| **Automated tests** | `tests/DocumentChecker.Engine.Tests` (xUnit): 72 test methods, 96 test cases including data variations. Each test is tagged with its test-case ID, for example `[Trait("TC", "TC-TBL-03")]`. |
+| **Automated tests** | `tests/DocumentChecker.Engine.Tests` (xUnit): 78 test methods, 102 test cases including data variations. Each test is tagged with its test-case ID, for example `[Trait("TC", "TC-TBL-03")]`. |
 
 ## How to run
 
@@ -12,9 +12,9 @@
 dotnet test tests/DocumentChecker.Engine.Tests/DocumentChecker.Engine.Tests.csproj
 ```
 
-Requires the .NET 10 SDK. Most tests build small Word files in a temporary folder, run the comparison, check the result and delete the files. TC-SMP-01 and TC-RPT-02 use the synthetic documents in `samples/`. No real customer documents are used.
+Requires the .NET 10 SDK. Tests never write to the user's real comparison history (each history test uses its own file; `DOCHECK_HISTORY_FILE` can point trial runs at another file). Most tests build small Word files in a temporary folder, run the comparison, check the result and delete the files. TC-SMP-01 and TC-RPT-02 use the synthetic documents in `samples/`. No real customer documents are used.
 
-**Expected result today on Windows and macOS:** 90 passed, 0 failed, 6 skipped (the 6 known-gap tests). On Linux the 3 OCR tests are also skipped, because Linux has no built-in text recognition.
+**Expected result today on Windows and macOS with LibreOffice installed:** 96 passed, 0 failed, 6 skipped (the 6 known-gap tests). Without LibreOffice, TC-EXV-03 is also skipped. On Linux the 3 OCR tests are also skipped, because Linux has no built-in text recognition.
 
 Run the tests of one test case:
 
@@ -34,6 +34,7 @@ DOCHECK_RUN_KNOWN_GAPS=1 dotnet test tests/DocumentChecker.Engine.Tests/Document
 |---|---|
 | **Auto** | Automated. Runs on every operating system. |
 | **Auto (OCR)** | Automated. It uses the computer's own text recognition: Windows OCR on Windows, Apple Vision on macOS. On Linux it is reported as **Skipped**, never as passed. |
+| **Auto (LibreOffice)** | Automated. It lays documents out with LibreOffice; where LibreOffice is not installed it is reported as **Skipped**. |
 | **Known gap** | An automated test of the correct behaviour for a known gap. It fails today, so it is reported as **Skipped** ("Known gap TC-GAP-xx"). Run it with `DOCHECK_RUN_KNOWN_GAPS=1`. When it passes, the gap is fixed: change its attribute to `[Fact]`. |
 | **Manual** | Not automated. A person follows the steps. |
 | **Proposed** | A test for a known gap or defect. It is not written yet and is **expected to fail** until the code is fixed. |
@@ -54,22 +55,24 @@ DOCHECK_RUN_KNOWN_GAPS=1 dotnet test tests/DocumentChecker.Engine.Tests/Document
 | Pairing | ALN | 4 | – | – | – | – |
 | Review items and locations | RV, LOC | 2 | – | – | – | – |
 | Sample documents | SMP | 1 | – | – | – | – |
-| Viewer (UI) | UI | 1 | – | – | – | – |
+| Viewer (UI) | UI | 2 (one test method) | – | – | – | – |
 | PDF report | RPT | 3 | – | – | – | – |
-| Manual checks | MAN | – | – | – | 8 | – |
+| Exact pages | EXV | 2 (+1 with LibreOffice) | – | – | – | – |
+| Comparison history | HIS | 4 | – | – | – | – |
+| Manual checks | MAN | – | – | – | 12 | – |
 | Known gaps and defects | GAP (15) | 4 fixed, now covered above | – | 6 | – | 5 |
 
 ---
 
 ## Which test cases compare two Word documents
 
-**50 test methods compare two Word documents end to end.** Each builds a Reference and a Current `.docx`, runs the real comparison, and checks the findings. The documents are built in a temporary folder by the test, except TC-SMP-01 and TC-RPT-02, which use the kept pair in `samples/`.
+**51 test methods compare two Word documents end to end.** Each builds a Reference and a Current `.docx`, runs the real comparison, and checks the findings. The documents are built in a temporary folder by the test, except TC-SMP-01 and TC-RPT-02, which use the kept pair in `samples/`.
 
 | Kind | Test cases |
 |---|---|
-| **Compare two documents** (50 methods) | TC-RES-01, TC-RES-02 · TC-TXT-01, 04, 05, 06 · TC-FMT-01, 03, 04, 05, 06, 07 · TC-RD-05 · TC-TBL-01…08 · TC-IMG-01, 07, 08 · TC-MIX-01…07 · TC-PRT-01…04 · TC-PG-01 · TC-ALN-01…04 · TC-RV-01 · TC-SMP-01 (2 methods) · TC-RPT-02 · known gaps TC-GAP-04, 05, 08, 10, 13, 14 |
+| **Compare two documents** (51 methods) | TC-EXV-03 · TC-RES-01, TC-RES-02 · TC-TXT-01, 04, 05, 06 · TC-FMT-01, 03, 04, 05, 06, 07 · TC-RD-05 · TC-TBL-01…08 · TC-IMG-01, 07, 08 · TC-MIX-01…07 · TC-PRT-01…04 · TC-PG-01 · TC-ALN-01…04 · TC-RV-01 · TC-SMP-01 (2 methods) · TC-RPT-02 · known gaps TC-GAP-04, 05, 08, 10, 13, 14 |
 | **Read one document** (no comparison) | TC-IN-01 · TC-RD-01…04 · TC-PG-02…06 · TC-LOC-01 |
-| **Test one piece of logic directly** | TC-TXT-02, TC-TXT-03 (text differences) · TC-TXT-06 symbol mapping · TC-IMG-02…05 (image text with given OCR words) · TC-IMG-06 (the OCR engine itself) · TC-RPT-03 (printed values) |
+| **Test one piece of logic directly** | TC-EXV-01 (reading PDF pages) · TC-EXV-02 (finding differences on pages) · TC-TXT-02, TC-TXT-03 (text differences) · TC-TXT-06 symbol mapping · TC-IMG-02…05 (image text with given OCR words) · TC-IMG-06 (the OCR engine itself) · TC-RPT-03 (printed values) |
 | **Screen and report** | TC-UI-01 (the viewer, which also runs a two-document comparison internally) · TC-RPT-01 (PDF created) |
 
 ## 1. Input and overall result
@@ -231,6 +234,15 @@ Every case has a "Heading1" heading and an image or a table under it. TC-MIX-01 
 | 9 | Subscript lost in "H₂O" | The "2" is drawn lowered in Reference. Details: "'2' should appear below the text line". |
 | 10 | Space missing ("500 mg" → "500mg") | Details show "500 mg" / "500mg" and "missing a space"; the location starts "Both documents:". |
 | 11 | Full sample document | Both panes are line-aligned, and the merged "Total" cell spans 2 columns. |
+| 12 | Click a highlight (the list narrows to it), then click unchanged text | "No difference" is shown and the list shows all differences again. *(Regression: this sequence used to close the app.)* |
+
+**TC-UI-02**: the "Show on the real pages" window (FR-16.6). Runs inside the same UI test as TC-UI-01 (`PageCompareWindowTests.Verify`), with prepared pages so it needs no Word or LibreOffice.
+
+| Step | Action | Expected result |
+|---|---|---|
+| 1 | Open the window for "95.0% → 90.0%" | Both pages show one mark for it. |
+| 2 | Press → | The next difference (text only in the approved document) is shown; the main window's selection follows; only the approved page has a mark. |
+| 3 | Press ← | Back to the first difference. |
 
 ## 14. PDF report
 
@@ -241,6 +253,23 @@ Every case has a "Heading1" heading and an image or a table under it. TC-MIX-01 
 | TC-RPT-03 | FR-15.3 | Values as printed in the report | " ", "  ", tab, "", "(no corresponding content)", "30" | "[space]", "[space][space]", "[tab]", "(empty)", "Not present", "30". | `ContentCoverageTests.Report_values_make_whitespace_and_absent_content_visible` (6 cases) | Auto |
 
 ---
+
+## 14a. Exact pages
+
+| ID | Req | Scenario | Input | Expected result | Automated test | Status |
+|---|---|---|---|---|---|---|
+| TC-EXV-01 | FR-16.1 | PDFium reads a real PDF | The app's own PDF report | One A4 page (595 points wide), a picture with dark pixels on white, and its text "DOCX Comparison Report" with every character inside the page. | `ExactViewTests.Pdfium_draws_pages_and_reads_their_characters` | Auto |
+| TC-EXV-02 | FR-16.2, FR-16.3 | Differences are found on a page | A made-up page with a header, a title, a short value "3.0" that also appears later, a symbol drawn without text, and a paragraph hidden in the document | "95.0%" is boxed at its exact position; "3.0" on its own line, not inside the longer paragraph; the header is found; "≤" gets a thin caret before "1.0%"; hidden text has no box; an added paragraph is a line above the paragraph it precedes. | `ExactViewTests.Differences_are_found_on_the_page_where_they_are_printed` | Auto |
+| TC-EXV-03 | FR-16.1, FR-16.2, FR-16.5 | The sample documents laid out end to end | `samples/` pair, laid out with LibreOffice | 2–4 pages per document, laid out by LibreOffice. Every difference is marked on each side where it exists, except text hidden in Current. The Assay value is on page 1; the image change on a later page; the inserted paragraph is a gap line in the approved document. | `ExactViewTests.Sample_documents_are_laid_out_and_every_visible_difference_is_marked` | Auto (LibreOffice) |
+
+## 14b. Comparison history
+
+| ID | Req | Scenario | Input | Expected result | Automated test | Status |
+|---|---|---|---|---|---|---|
+| TC-HIS-01 | FR-18.1 | A comparison is saved | The sample pair | One entry: file names, both SHA-256 fingerprints, reviewer, "21 differences · 1 to check yourself", "Row missing from Current" 3 times, and every difference with values and locations (e.g. 95.0% → 90.0% at "Table 2, Row 4, Column 2 (Assay · Acceptance criteria)"; a removed space as "[space]"). The Current file is "unchanged since". | `HistoryTests.A_comparison_is_saved_with_its_files_result_and_differences` | Auto |
+| TC-HIS-02 | FR-18.1, FR-18.4 | Duplicates, changed files, damage, delete, clear | The sample pair compared twice, then Current replaced | The second identical comparison is not saved again. After Current changes, a new entry comes first and the old entry says Current "changed". A damaged line is skipped. Delete removes one entry; Clear removes all; a deleted file shows as "missing". | `HistoryTests.Repeated_comparisons_are_saved_once_and_entries_can_be_deleted` | Auto |
+| TC-HIS-03 | FR-18.3 | CSV export | Entries with commas, quotes, line breaks, "=SUM(A1)" and "-0.5%" | Commas and line breaks are quoted, quotes doubled, and formula-like values start with an apostrophe so Excel shows them as text. | `HistoryTests.History_exports_to_csv_safely` | Auto |
+| TC-HIS-04 | FR-18.2, FR-18.3 | The History window | A history with the sample comparison | One entry listed; its details show the result, the file names, "Unchanged since this comparison" and "Row missing from Current 3"; "Compare these files again" hands both files to the main window. Runs inside the shared UI test (`HistoryTests.VerifyWindow`). | `ChangeSelectionTests.Clicking_a_table_value_…` | Auto |
 
 ## 15. Manual test cases
 
@@ -256,6 +285,10 @@ Features that work today but have no automated test. Run them before each releas
 | TC-MAN-06 | NFR-04 | Run TC-MAN-01 on a computer **without OCR** (Linux, or Windows without an OCR language) with documents whose images differ. | Image changes are still reported as visual changes, with crops. The review note says text recognition is unavailable. No values are invented. |
 | TC-MAN-07 | NFR-04 | Run TC-MAN-01 and TC-MAN-04 on **macOS** with the sample documents. | The app opens and compares, the image change reads "99.1 → 98.4" (Apple Vision OCR, marked verify), and saving Current in Word refreshes the comparison. |
 | TC-MAN-08 | FR-12.7 | Open the app at its smallest size (1100 × 680) and full size, compare the sample documents, and ask someone new to the tool to find the Assay change and say what it means. | No text is cut off or split mid-word, nothing scrolls sideways, and the person can find and explain the change without help (compare with [docs/screenshots](screenshots/)). |
+| TC-MAN-09 | FR-16 | 1. Compare the sample documents. 2. Click **Exact pages**. 3. Click several differences in the list, including "Text hidden in Current" and the image change. 4. Zoom to 160%. 5. Click **Reading view**. | After a few seconds both documents show as real pages ("laid out by LibreOffice" or "Microsoft Word"). Each difference is boxed on the page and both documents scroll to it. For hidden text, the Current pane says it is not visible on the pages. At 160% the print is readable and the panes scroll sideways. Reading view comes back unchanged. On Windows with Word installed, the pages say "laid out by Microsoft Word". |
+| TC-MAN-10 | FR-17.1 | Click **Open in Word** above each document, then try to save in Word. | Word opens "… (read-only copy).docx"; saving asks for a new name (the copy is read-only), and the original file is unchanged. |
+| TC-MAN-11 | FR-16.6 | Select a difference, click **Show on the real pages**, then press → several times, try − / +, Whole page and Zoom to change, and press Esc. | The window shows the approved and Current pages side by side, zoomed to the change with it outlined on both. → moves on and the main window's list follows. For hidden text, the Current side says it is not visible and shows the same area. For an inserted paragraph, the approved side shows a pink line where it would be. Esc closes the window. |
+| TC-MAN-12 | FR-18 | 1. Compare the sample documents. 2. Click **History**. 3. Search for "RevB". 4. Click **Export all (CSV)** and **Export this comparison (CSV)** and open both in Excel. 5. Edit and save Current in Word, compare again, and open History. 6. Click **Compare these files again** on the older entry. 7. Delete one entry, then Clear history. | The comparison is listed with date, reviewer, files and result. The CSV files open in Excel with correct symbols (≤, µ). After step 5 there are two entries and the older one says Current "changed since". Step 6 loads both files in the main window and compares them. Clear asks for confirmation. |
 
 ---
 
@@ -302,6 +335,9 @@ These describe **what should happen**. Fixed gaps are marked ✅ and point to th
 | FR-13 Findings list | TC-UI-01, TC-MAN-01, TC-MAN-03, TC-GAP-07, TC-GAP-08 |
 | FR-14 Auto refresh | TC-MAN-04, TC-GAP-09 |
 | FR-15 PDF report | TC-RPT-01…03, TC-MAN-05 |
+| FR-16 Exact pages | TC-EXV-01…03, TC-UI-02, TC-MAN-09, TC-MAN-11 |
+| FR-17 Open the original | TC-MAN-10 |
+| FR-18 Comparison history | TC-HIS-01…04, TC-MAN-12 |
 | NFR-03, NFR-04, NFR-07 | TC-GAP-12, TC-MAN-06, TC-MAN-07, TC-GAP-15 |
 
 **Not covered by any test:** FR-01.3 error cases other than "file in use", FR-08.7 (image size, alt text, title, alignment and placement changes), most review-item types in FR-10.1 (text box, block content control, tracked changes, and so on), and NFR-09 (dependency vulnerabilities; check with `dotnet list package --vulnerable`).

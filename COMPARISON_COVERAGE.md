@@ -11,6 +11,13 @@ Reference is the approved source. Red indicates Reference content; green indicat
 - Image-to-table replacements in unambiguous corresponding sections, in either direction. Spatial OCR row labels and column gaps map recognized values to native table cells; simple single-row content can use reading order.
 - SHA-256 equality: **Exact File Match** means identical file bytes. Otherwise, no findings means only that no differences were found within the implemented checks. Author/date/package metadata is excluded from content comparison.
 
+## Two ways to view the documents
+
+- **Reading view** (default): the text of both documents side by side, kept level line by line. Fast, but the layout is simplified (no real page breaks, fonts or column widths).
+- **Exact pages**: the real pages, laid out by Microsoft Word (Windows) or LibreOffice (any system, free), with the differences marked on them. It takes a few seconds the first time. The engine works on a temporary copy; copies and laid-out pages are deleted when the app closes.
+- **Open in Word** opens a read-only copy of either document in Word.
+- **History** lists every comparison made on this computer (when, who, which files with their fingerprints, the result and each difference), can compare the same files again, and exports to CSV. It is stored only on this computer and can be cleared.
+
 ## What requires verification
 
 OCR is recognition, not ground truth. It can misread digits, punctuation, symbols, small text, and complex grids. OCR-derived findings are labeled **verify**, even when recognized values match. Their image crops let reviewers inspect the original evidence. Failed or ambiguous recognition never certifies a match.

@@ -58,6 +58,30 @@
       <Setter Property="VerticalAlignment" Value="Center" />
       <Setter Property="Margin" Value="5,0,14,0" />
     </Style>
+    <Style Selector="ToggleButton.segment">
+      <Setter Property="Padding" Value="12,5" />
+      <Setter Property="FontSize" Value="12.5" />
+      <Setter Property="Background" Value="#F1F5F9" />
+      <Setter Property="Foreground" Value="#334155" />
+      <Setter Property="BorderBrush" Value="#CBD5E1" />
+      <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="ToggleButton.segment:checked /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#2457C5" />
+      <Setter Property="Foreground" Value="White" />
+      <Setter Property="BorderBrush" Value="#2457C5" />
+    </Style>
+    <Style Selector="ToggleButton.left">
+      <Setter Property="CornerRadius" Value="6,0,0,6" />
+    </Style>
+    <Style Selector="ToggleButton.right">
+      <Setter Property="CornerRadius" Value="0,6,6,0" />
+    </Style>
+    <Style Selector="Button.small">
+      <Setter Property="Padding" Value="9,4" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Background" Value="White" />
+    </Style>
     <Style Selector="ListBoxItem">
       <Setter Property="Padding" Value="2" />
     </Style>
@@ -67,7 +91,7 @@
 
     <!-- 1. Choose the two documents -->
     <Border Classes="card" Padding="14,10">
-      <Grid ColumnDefinitions="Auto,*,*,Auto" ColumnSpacing="12">
+      <Grid ColumnDefinitions="Auto,*,*,Auto,Auto" ColumnSpacing="12">
         <StackPanel VerticalAlignment="Center" Spacing="1" Margin="0,0,6,0">
           <TextBlock FontSize="19" FontWeight="SemiBold" Foreground="#172B4D" Text="Document Checker" />
           <TextBlock FontSize="12" Foreground="#64748B" Text="Runs on this computer · never changes your files" />
@@ -93,7 +117,9 @@
           </Grid>
         </Border>
 
-        <Button x:Name="CompareButton" Grid.Column="3" Classes="primary" Click="Compare_Click" IsEnabled="False">Compare</Button>
+        <Button x:Name="HistoryButton" Grid.Column="3" Click="History_Click" Padding="14,10"
+                ToolTip.Tip="Every comparison made on this computer: when, by whom, which files and what was found. Compare again or export to CSV.">History</Button>
+        <Button x:Name="CompareButton" Grid.Column="4" Classes="primary" Click="Compare_Click" IsEnabled="False">Compare</Button>
       </Grid>
     </Border>
 
@@ -102,7 +128,8 @@
       <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="14" RowSpacing="6">
           <TextBlock x:Name="StatusText" FontSize="15" FontWeight="SemiBold" Foreground="#172B4D" TextWrapping="Wrap" VerticalAlignment="Center"
                      Text="Choose the approved document and the document to check, then click Compare." />
-          <WrapPanel x:Name="LegendPanel" Grid.Row="1" Grid.ColumnSpan="5" IsVisible="False" Orientation="Horizontal"
+          <Grid Grid.Row="1" Grid.ColumnSpan="5" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <WrapPanel x:Name="LegendPanel" IsVisible="False" Orientation="Horizontal" VerticalAlignment="Center"
                      ToolTip.Tip="What the colours mean in the two documents. Click any highlight to see it explained.">
             <Border Width="16" Height="11" BorderBrush="#F87171" BorderThickness="0,0,0,2" VerticalAlignment="Center" />
             <TextBlock Classes="legend" Text="Approved value" />
@@ -116,6 +143,13 @@
             <TextBlock Classes="legend" Text="Image ↔ table" />
             <TextBlock Classes="legend" Foreground="#94A3B8" Text="·  Click any highlight to see it explained" />
           </WrapPanel>
+          <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <ToggleButton x:Name="ReadingViewButton" Classes="segment left" IsChecked="True" Click="ReadingView_Click"
+                          ToolTip.Tip="Reading view: the text of both documents side by side, kept level line by line. Fast; the layout is simplified.">Reading view</ToggleButton>
+            <ToggleButton x:Name="ExactViewButton" Classes="segment right" Click="ExactView_Click"
+                          ToolTip.Tip="Exact pages: the real pages, laid out by Microsoft Word or LibreOffice, with the differences marked on them.">Exact pages</ToggleButton>
+          </StackPanel>
+          </Grid>
 
         <Button x:Name="NextReviewButton" Grid.Column="1" Classes="review" Click="NextReview_Click" IsVisible="False"
                 ToolTip.Tip="Go through each item you need to check yourself. They are amber in the documents and beside the scroll bars.">Next to review</Button>
@@ -149,12 +183,15 @@
       <Border Classes="card" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
           <Border Background="#FFF5F6" BorderBrush="#FECDD3" BorderThickness="0,0,0,1" Padding="14,8">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
               <Border Width="10" Height="10" CornerRadius="5" Background="#E11D48" VerticalAlignment="Center" />
               <StackPanel Grid.Column="1" Spacing="1">
                 <TextBlock FontWeight="Bold" Foreground="#9F1239" Text="Approved · Reference" />
                 <TextBlock x:Name="ReferenceDocumentName" FontSize="12" Foreground="#64748B" Text="No document selected" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="ReferenceExactNote" FontSize="11.5" Foreground="#92400E" TextWrapping="Wrap" IsVisible="False" />
               </StackPanel>
+              <Button x:Name="OpenReferenceButton" Grid.Column="2" Classes="small" Click="OpenReference_Click"
+                      ToolTip.Tip="Opens a read-only copy of this document in Microsoft Word (or your default app for .docx), so the original cannot be changed.">Open in Word</Button>
             </Grid>
           </Border>
           <Grid Grid.Row="1" ColumnDefinitions="*,12">
@@ -163,9 +200,12 @@
                           VerticalScrollBarVisibility="Visible"
                           HorizontalScrollBarVisibility="Disabled"
                           ScrollChanged="ReferenceScrollViewer_ScrollChanged">
-              <Border x:Name="ReferencePageSurface" MaxWidth="900" HorizontalAlignment="Stretch" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" Margin="12" Padding="26,22" BoxShadow="0 1 4 0 #18000000">
-                <StackPanel x:Name="ReferenceDocumentPanel" Spacing="12" />
-              </Border>
+              <Panel>
+                <Border x:Name="ReferencePageSurface" MaxWidth="900" HorizontalAlignment="Stretch" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" Margin="12" Padding="26,22" BoxShadow="0 1 4 0 #18000000">
+                  <StackPanel x:Name="ReferenceDocumentPanel" Spacing="12" />
+                </Border>
+                <StackPanel x:Name="ReferenceExactPanel" IsVisible="False" Spacing="10" Margin="12" />
+              </Panel>
             </ScrollViewer>
             <Canvas x:Name="ReferenceOverview" Grid.Column="1" Background="#E2E8F0" ClipToBounds="True"
                     ToolTip.Tip="Where the differences are in this document. Amber = check yourself. Click a mark to jump to it." />
@@ -176,12 +216,15 @@
       <Border Grid.Column="1" Classes="card" ClipToBounds="True">
         <Grid RowDefinitions="Auto,*">
           <Border Background="#F3FCF6" BorderBrush="#BBF7D0" BorderThickness="0,0,0,1" Padding="14,8">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="9">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="9">
               <Border Width="10" Height="10" CornerRadius="5" Background="#16A34A" VerticalAlignment="Center" />
               <StackPanel Grid.Column="1" Spacing="1">
                 <TextBlock FontWeight="Bold" Foreground="#166534" Text="Being checked · Current" />
                 <TextBlock x:Name="CurrentDocumentName" FontSize="12" Foreground="#64748B" Text="No document selected" TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="CurrentExactNote" FontSize="11.5" Foreground="#92400E" TextWrapping="Wrap" IsVisible="False" />
               </StackPanel>
+              <Button x:Name="OpenCurrentButton" Grid.Column="2" Classes="small" Click="OpenCurrent_Click"
+                      ToolTip.Tip="Opens a read-only copy of this document in Microsoft Word (or your default app for .docx), so the original cannot be changed.">Open in Word</Button>
             </Grid>
           </Border>
           <Grid Grid.Row="1" ColumnDefinitions="*,12">
@@ -190,9 +233,12 @@
                           VerticalScrollBarVisibility="Visible"
                           HorizontalScrollBarVisibility="Disabled"
                           ScrollChanged="CurrentScrollViewer_ScrollChanged">
-              <Border x:Name="CurrentPageSurface" MaxWidth="900" HorizontalAlignment="Stretch" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" Margin="12" Padding="26,22" BoxShadow="0 1 4 0 #18000000">
-                <StackPanel x:Name="CurrentDocumentPanel" Spacing="12" />
-              </Border>
+              <Panel>
+                <Border x:Name="CurrentPageSurface" MaxWidth="900" HorizontalAlignment="Stretch" Background="White" BorderBrush="#E2E8F0" BorderThickness="1" Margin="12" Padding="26,22" BoxShadow="0 1 4 0 #18000000">
+                  <StackPanel x:Name="CurrentDocumentPanel" Spacing="12" />
+                </Border>
+                <StackPanel x:Name="CurrentExactPanel" IsVisible="False" Spacing="10" Margin="12" />
+              </Panel>
             </ScrollViewer>
             <Canvas x:Name="CurrentOverview" Grid.Column="1" Background="#E2E8F0" ClipToBounds="True"
                     ToolTip.Tip="Where the differences are in this document. Amber = check yourself. Click a mark to jump to it." />
@@ -282,6 +328,9 @@
                     <TextBlock Classes="caption" Text="WHAT TO DO" />
                     <TextBlock x:Name="DetailActionText" Foreground="#334155" TextWrapping="Wrap" />
                   </StackPanel>
+                  <Button x:Name="ShowOnPagesButton" Classes="primary" Click="ShowOnPages_Click" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                          FontSize="13.5" Padding="12,8"
+                          ToolTip.Tip="Open the approved page and the current page side by side, as Word or LibreOffice lays them out, with this difference marked on both.">Show on the real pages</Button>
                   <Expander x:Name="DetailMoreExpander" Header="More details" HorizontalAlignment="Stretch">
                     <StackPanel Spacing="6">
                       <TextBlock x:Name="DetailCategoryText" TextWrapping="Wrap" />

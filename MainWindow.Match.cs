@@ -48,21 +48,23 @@ public partial class MainWindow
             return;
 
         var counterpart = _comparisonResult.CounterpartOf(paragraphIndex, isReference);
+        var selection = isReference ? new MatchSelection(paragraphIndex, counterpart) : new MatchSelection(counterpart, paragraphIndex);
         _selectedDifferenceId = null;
-        _selectedMatch = isReference ? new(paragraphIndex, counterpart) : new(counterpart, paragraphIndex);
-        // Drop a list narrowed by an earlier click; a filter chosen in the drop-down stays.
+        // Clear the list's selection before its items change, so the list cannot select a difference again;
+        // a narrowed list from an earlier click is dropped, but a filter chosen in the drop-down stays.
+        DifferenceList.SelectedItem = null;
         if (FindingFilter.SelectedIndex == 0)
             ShowNavigatorItems(_navigatorItems, null);
         DifferenceList.SelectedItem = null;
+        _selectedMatch = selection;
         SelectionScopeText.Text = "Selected content · no difference here";
 
-        var referenceParagraph = Find(referenceDocument, _selectedMatch.ReferenceIndex);
-        var currentParagraph = Find(currentDocument, _selectedMatch.CurrentIndex);
+        var referenceParagraph = Find(referenceDocument, selection.ReferenceIndex);
+        var currentParagraph = Find(currentDocument, selection.CurrentIndex);
         ShowMatchDetails(referenceParagraph, currentParagraph);
 
         RenderDocuments();
         UpdateReviewButton();
-        var selection = _selectedMatch;
         Dispatcher.UIThread.Post(() =>
         {
             if (!ReferenceEquals(_selectedMatch, selection) || _closed)
@@ -98,6 +100,7 @@ public partial class MainWindow
         DetailConfidenceText.Background = new SolidColorBrush(Color.Parse(paired ? "#F0FDF4" : "#FFFBEB"));
         DetailConfidenceText.IsVisible = true;
         ShowDetails();
+        ShowOnPagesButton.IsVisible = false;
         DetailSourceTruthText.Text = paired
             ? "Reference and Current have the same text, spacing and direct formatting here. No action is needed." + TableNote(reference!, current!)
             : "This content was not compared with a specific paragraph in the other document, for example because it is part of an image/table replacement.";

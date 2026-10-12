@@ -192,6 +192,8 @@ public sealed class ReviewMarkerTests
         Assert.Contains("repeats on every page", window.FindControl<TextBlock>("DetailPageNoteText")!.Text);
 
         // Clicking unchanged content confirms the match and outlines the same content in both documents.
+        // A highlight is clicked first, so the list is narrowed to it: clicking unchanged text afterwards used to crash.
+        Invoke(window, "SelectFromViewer", header);
         ClickText(window, "ReferenceDocumentPanel", "Contract");
         Assert.Equal("No difference", window.FindControl<TextBlock>("DetailOperationText")!.Text);
         Assert.StartsWith("MATCH", window.FindControl<TextBlock>("DetailConfidenceText")!.Text);

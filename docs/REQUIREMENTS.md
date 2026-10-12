@@ -206,6 +206,32 @@ It is a **review aid**. It helps a reviewer find differences quickly and see the
 | FR-15.3 | Whitespace values are shown visibly in the report ("[space]", "[tab]"), and absent content reads "Not present". | ✅ Met | TC-RPT-02, TC-RPT-03 |
 | FR-15.4 | The report uses the **same change names** as the app (for example "Row missing from Current", not "Deleted paragraph"). | ✅ Met | TC-RPT-02 |
 
+### FR-16 Exact pages (the real layout)
+
+| ID | Requirement | Status | Verified by |
+|---|---|---|---|
+| FR-16.1 | A switch **Reading view / Exact pages** shows both documents as their **real pages**, laid out by **Microsoft Word** (Windows, exactly as Word prints) or **LibreOffice** (any system, nearly identical), side by side. The engine used is named above the pages. | ✅ Met (LibreOffice tested on macOS; Word path untested on Windows) | TC-EXV-03, TC-MAN-09 |
+| FR-16.2 | The differences are marked **on the real pages** in the same colours as Reading view: values, formatting, whole paragraphs, tables, header/footer/footnote text, and the changed area inside an image. Content missing on one side is a pink line where it belongs. Clicking a mark selects the difference; selecting a difference scrolls both documents to it. | ✅ Met | TC-EXV-02, TC-EXV-03 |
+| FR-16.3 | When the selected difference has no place on a document's pages (for example text hidden in Current), the pane says so instead of marking a wrong place. | ✅ Met | TC-EXV-02, TC-MAN-09 |
+| FR-16.4 | Zoom enlarges the real pages beyond the pane width (the pane then scrolls sideways), so small print can be read. Pages are drawn at 144 dpi so they stay sharp. | ✅ Met | TC-MAN-09 |
+| FR-16.6 | **Show on the real pages** (in the explanation panel) opens a window with the approved page and the Current page side by side, only the selected difference outlined, both zoomed to it at the same size and centred on it. It has ‹ Previous / Next › (also ← →) which keep the main window's selection in step, − / +, Whole page, Zoom to change, and Close (Esc). A side without a place for the difference says why (not in this document, hidden, or a pink line where the content would be) and shows the same area of its page. | ✅ Met | TC-UI-02, TC-MAN-11 |
+| FR-16.5 | The layout engine only ever works on a **temporary copy**; laid-out pages are reused while a file is unchanged and are deleted when the app closes. If no engine is installed, the pane explains how to get one. | ✅ Met | TC-EXV-03, TC-MAN-09 |
+
+### FR-17 Open the original
+
+| ID | Requirement | Status | Verified by |
+|---|---|---|---|
+| FR-17.1 | **Open in Word** above each document opens a **read-only copy** of it in Microsoft Word (or the default app for .docx when Word is not installed; the button then says "Open original"), so the approved file cannot be changed by accident. | 🟡 Partial (manual only) | TC-MAN-10 |
+
+### FR-18 Comparison history
+
+| ID | Requirement | Status | Verified by |
+|---|---|---|---|
+| FR-18.1 | Every completed comparison is saved automatically: date and time, reviewer (computer user name) and computer, both files (name, full path, SHA-256 fingerprint), the result, the number of differences and items to check, the count per type of change, and every difference as found (type, both values, both locations). Comparing the same two unchanged files again does not add a duplicate. Saving never interrupts a comparison. | ✅ Met | TC-HIS-01, TC-HIS-02 |
+| FR-18.2 | **History** (next to Compare) lists the saved comparisons, newest first, with a search by file name, result, reviewer or date. The selected comparison shows its details and, for each file, whether it is **unchanged, changed or missing** since that comparison (by fingerprint). | ✅ Met | TC-HIS-04, TC-MAN-12 |
+| FR-18.3 | From History: **Compare these files again**, **Export this comparison (CSV)**, **Export all (CSV)**, **Delete from history**, and **Clear history** (asks for confirmation). CSV files open correctly in Excel (UTF-8), and values that Excel would run as formulas are written as text. | ✅ Met | TC-HIS-03, TC-HIS-04, TC-MAN-12 |
+| FR-18.4 | The history is one file per user on this computer (`history.jsonl` in the user's application-data folder; on macOS `~/Library/Application Support/DocumentChecker/`). A damaged line is skipped without losing the other entries. | ✅ Met | TC-HIS-02 |
+
 ---
 
 ## 5. Non-functional requirements
@@ -217,9 +243,9 @@ It is a **review aid**. It helps a reviewer find differences quickly and see the
 | NFR-03 | **Honest claims.** Only Exact File Match claims identity. OCR findings are always "verify". Failed or ambiguous OCR never certifies a match. | ✅ Met |
 | NFR-04 | **Platform.** Runs on .NET 10 with Avalonia 12 on Windows, macOS and Linux. OCR uses **Windows OCR** on Windows (needs Windows PowerShell and an installed OCR language) and **Apple Vision** on macOS 10.15 or later (built in, run through `osascript`). Linux has no OCR: image changes are still reported as visual changes with crops, and no values are invented. Auto-refresh after saving works on Windows and macOS. | ✅ Met (Windows, macOS); 🟡 Linux without OCR |
 | NFR-05 | **OCR limits.** Each image read times out after 30 seconds. Results are cached for the session. | ✅ Met |
-| NFR-06 | **Confidentiality.** `.docx` files are never committed to the repository (`.gitignore`). | ✅ Met |
+| NFR-06 | **Confidentiality.** `.docx` files are never committed to the repository (`.gitignore`), except the synthetic `samples/`. Exact pages and Open in Word make temporary copies of the documents in the user's temporary folder (a folder per session); they are deleted when the app closes. The **comparison history** contains file names, paths and the differing values; it stays in the user's own application-data folder on this computer and can be cleared from the History window. | ✅ Met |
 | NFR-07 | **Performance.** No target is defined yet. Known risk: every click rebuilds both document views, which may be slow for documents of 200+ pages. | ❌ Gap (target needed) |
-| NFR-09 | **Dependencies.** Third-party packages have no known security vulnerabilities. SixLabors.ImageSharp 2.1.13 currently has 3 high and 2 moderate advisories (it decodes every image in the documents). Note that ImageSharp 3.x needs a commercial licence for large companies. | ❌ Gap (upgrade needed) |
+| NFR-09 | **Dependencies.** Third-party packages have no known security vulnerabilities. Exact pages use PDFium (bblanchon.PDFium 156.0.8066, Apache-2.0) and an installed Word or LibreOffice. SixLabors.ImageSharp 2.1.13 currently has 3 high and 2 moderate advisories (it decodes every image in the documents). Note that ImageSharp 3.x needs a commercial licence for large companies. | ❌ Gap (upgrade needed) |
 | NFR-08 | **Report fonts.** The PDF uses a locally installed font (Arial, Segoe UI or DejaVu Sans). If none is found, report creation fails with a message. | ✅ Met |
 
 ---
@@ -245,3 +271,4 @@ These need a decision before the requirements can be considered final:
 3. **Performance target.** What is the largest document (pages, tables, images) that must open, and how fast?
 4. **Validation.** Does the tool need formal computerized-system validation (for example GAMP 5 / 21 CFR Part 11)? If yes, this document and [TEST_CASES.md](TEST_CASES.md) become the URS and test protocol and need sign-off.
 5. **Report.** Must the PDF include the image crops, reviewer name, date and time, or a signature?
+6. **History as a record.** Is the local history enough, or must comparisons be kept in a shared, tamper-evident place (for example for audits under 21 CFR Part 11)? The local file can be cleared by the user and is not signed.

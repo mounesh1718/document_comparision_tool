@@ -16,6 +16,10 @@
     <PackageReference Include="DiffPlex" Version="1.9.0" />
     <PackageReference Include="SixLabors.ImageSharp" Version="2.1.13" />
     <PackageReference Include="PDFsharp-MigraDoc" Version="6.2.4" />
+    <!-- PDFium native library (Apache-2.0) for Exact view: draws laid-out pages and gives character positions. -->
+    <PackageReference Include="bblanchon.PDFium.Win32" Version="156.0.8066" />
+    <PackageReference Include="bblanchon.PDFium.macOS" Version="156.0.8066" />
+    <PackageReference Include="bblanchon.PDFium.Linux" Version="156.0.8066" />
   </ItemGroup>
 
   <ItemGroup>
@@ -23,6 +27,7 @@
     <Compile Remove="tmp\**\*.cs" />
     <EmbeddedResource Include="Comparison\ReadImageText.ps1" />
     <EmbeddedResource Include="Comparison\ReadImageTextMac.js" />
+    <InternalsVisibleTo Include="DocumentChecker.Engine.Tests" />
   </ItemGroup>
 
 </Project>
