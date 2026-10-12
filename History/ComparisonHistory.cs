@@ -45,6 +45,8 @@ public enum HistoryFileState { Unchanged, Changed, Missing, Unknown }
 public sealed class ComparisonHistory
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = false };
+    // JSON Lines files are plain UTF-8 without a byte-order mark, so other tools (Excel, Python, jq) read them too.
+    private static readonly Encoding Utf8 = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
     private readonly object _gate = new();
 
     public ComparisonHistory(string? filePath = null)
@@ -100,7 +102,9 @@ public sealed class ComparisonHistory
                 latest.Result == entry.Result)
                 return latest;
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.AppendAllText(FilePath, JsonSerializer.Serialize(entry, Json) + Environment.NewLine, Encoding.UTF8);
+            if (StartsWithByteOrderMark())
+                Rewrite(Load().OrderBy(saved => saved.ComparedAt));
+            File.AppendAllText(FilePath, JsonSerializer.Serialize(entry, Json) + Environment.NewLine, Utf8);
             return entry;
         }
     }
@@ -127,8 +131,18 @@ public sealed class ComparisonHistory
     {
         Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
         var temporary = FilePath + ".tmp";
-        File.WriteAllLines(temporary, entries.Select(entry => JsonSerializer.Serialize(entry, Json)), Encoding.UTF8);
+        File.WriteAllLines(temporary, entries.Select(entry => JsonSerializer.Serialize(entry, Json)), Utf8);
         File.Move(temporary, FilePath, overwrite: true);
+    }
+
+    /// <summary>Files written by earlier versions start with a UTF-8 byte-order mark; they are rewritten without it.</summary>
+    private bool StartsWithByteOrderMark()
+    {
+        if (!File.Exists(FilePath))
+            return false;
+        using var stream = File.OpenRead(FilePath);
+        Span<byte> start = stackalloc byte[3];
+        return stream.Read(start) == 3 && start[0] == 0xEF && start[1] == 0xBB && start[2] == 0xBF;
     }
 
     /// <summary>The history entry for a comparison, without saving it.</summary>

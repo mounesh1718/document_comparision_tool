@@ -36,6 +36,28 @@ public sealed class HistoryTests : IDisposable
         Assert.EndsWith("Table 2, Row 4, Column 2 (Assay · Acceptance criteria)", assay.ReferenceLocation);
         Assert.Contains(entry.Findings, finding => finding.Change == "Space missing in Current" && finding.Reference == "[space]");
         Assert.Equal(HistoryFileState.Unchanged, ComparisonHistory.StateOf(entry.Current));
+        // Plain UTF-8 without a byte-order mark, one JSON object per line, readable by other tools.
+        var bytes = File.ReadAllBytes(history.FilePath);
+        Assert.NotEqual(0xEF, bytes[0]);
+        Assert.Equal((byte)'{', bytes[0]);
+    }
+
+    [Fact]
+    [Trait("TC", "TC-HIS-01")]
+    public void A_history_file_with_a_byte_order_mark_is_cleaned_when_the_next_comparison_is_saved()
+    {
+        var (reference, current) = CopySamples();
+        var file = Path.Combine(_directory, "history.jsonl");
+        var history = new ComparisonHistory(file);
+        history.Record(Compare(reference, current), reference, current, DateTimeOffset.Now.AddDays(-1));
+        File.WriteAllBytes(file, [0xEF, 0xBB, 0xBF, .. File.ReadAllBytes(file)]);   // as written by the first version
+        Assert.Single(history.Load());
+
+        File.Copy(reference, current, overwrite: true);
+        history.Record(Compare(reference, current), reference, current);
+
+        Assert.Equal((byte)'{', File.ReadAllBytes(file)[0]);
+        Assert.Equal(2, history.Load().Count);
     }
 
     [Fact]

@@ -4,7 +4,7 @@
 |---|---|
 | **Version described** | Commit `bf00bbf` plus the fixes of 2026-10-12 |
 | **Requirements** | [REQUIREMENTS.md](REQUIREMENTS.md). The **Req** column links each test case to a requirement ID. |
-| **Automated tests** | `tests/DocumentChecker.Engine.Tests` (xUnit): 78 test methods, 102 test cases including data variations. Each test is tagged with its test-case ID, for example `[Trait("TC", "TC-TBL-03")]`. |
+| **Automated tests** | `tests/DocumentChecker.Engine.Tests` (xUnit): 79 test methods, 103 test cases including data variations. Each test is tagged with its test-case ID, for example `[Trait("TC", "TC-TBL-03")]`. |
 
 ## How to run
 
@@ -14,7 +14,7 @@ dotnet test tests/DocumentChecker.Engine.Tests/DocumentChecker.Engine.Tests.cspr
 
 Requires the .NET 10 SDK. Tests never write to the user's real comparison history (each history test uses its own file; `DOCHECK_HISTORY_FILE` can point trial runs at another file). Most tests build small Word files in a temporary folder, run the comparison, check the result and delete the files. TC-SMP-01 and TC-RPT-02 use the synthetic documents in `samples/`. No real customer documents are used.
 
-**Expected result today on Windows and macOS with LibreOffice installed:** 96 passed, 0 failed, 6 skipped (the 6 known-gap tests). Without LibreOffice, TC-EXV-03 is also skipped. On Linux the 3 OCR tests are also skipped, because Linux has no built-in text recognition.
+**Expected result today on Windows and macOS with LibreOffice installed:** 97 passed, 0 failed, 6 skipped (the 6 known-gap tests). Without LibreOffice, TC-EXV-03 is also skipped. On Linux the 3 OCR tests are also skipped, because Linux has no built-in text recognition.
 
 Run the tests of one test case:
 
@@ -58,7 +58,7 @@ DOCHECK_RUN_KNOWN_GAPS=1 dotnet test tests/DocumentChecker.Engine.Tests/Document
 | Viewer (UI) | UI | 2 (one test method) | – | – | – | – |
 | PDF report | RPT | 3 | – | – | – | – |
 | Exact pages | EXV | 2 (+1 with LibreOffice) | – | – | – | – |
-| Comparison history | HIS | 4 | – | – | – | – |
+| Comparison history | HIS | 4 (5 test methods) | – | – | – | – |
 | Manual checks | MAN | – | – | – | 12 | – |
 | Known gaps and defects | GAP (15) | 4 fixed, now covered above | – | 6 | – | 5 |
 
@@ -266,7 +266,7 @@ Every case has a "Heading1" heading and an image or a table under it. TC-MIX-01 
 
 | ID | Req | Scenario | Input | Expected result | Automated test | Status |
 |---|---|---|---|---|---|---|
-| TC-HIS-01 | FR-18.1 | A comparison is saved | The sample pair | One entry: file names, both SHA-256 fingerprints, reviewer, "21 differences · 1 to check yourself", "Row missing from Current" 3 times, and every difference with values and locations (e.g. 95.0% → 90.0% at "Table 2, Row 4, Column 2 (Assay · Acceptance criteria)"; a removed space as "[space]"). The Current file is "unchanged since". | `HistoryTests.A_comparison_is_saved_with_its_files_result_and_differences` | Auto |
+| TC-HIS-01 | FR-18.1 | A comparison is saved | The sample pair | One entry: file names, both SHA-256 fingerprints, reviewer, "21 differences · 1 to check yourself", "Row missing from Current" 3 times, and every difference with values and locations (e.g. 95.0% → 90.0% at "Table 2, Row 4, Column 2 (Assay · Acceptance criteria)"; a removed space as "[space]"). The Current file is "unchanged since". | `HistoryTests.A_comparison_is_saved_with_its_files_result_and_differences`, `HistoryTests.A_history_file_with_a_byte_order_mark_is_cleaned_when_the_next_comparison_is_saved` | Auto |
 | TC-HIS-02 | FR-18.1, FR-18.4 | Duplicates, changed files, damage, delete, clear | The sample pair compared twice, then Current replaced | The second identical comparison is not saved again. After Current changes, a new entry comes first and the old entry says Current "changed". A damaged line is skipped. Delete removes one entry; Clear removes all; a deleted file shows as "missing". | `HistoryTests.Repeated_comparisons_are_saved_once_and_entries_can_be_deleted` | Auto |
 | TC-HIS-03 | FR-18.3 | CSV export | Entries with commas, quotes, line breaks, "=SUM(A1)" and "-0.5%" | Commas and line breaks are quoted, quotes doubled, and formula-like values start with an apostrophe so Excel shows them as text. | `HistoryTests.History_exports_to_csv_safely` | Auto |
 | TC-HIS-04 | FR-18.2, FR-18.3 | The History window | A history with the sample comparison | One entry listed; its details show the result, the file names, "Unchanged since this comparison" and "Row missing from Current 3"; "Compare these files again" hands both files to the main window. Runs inside the shared UI test (`HistoryTests.VerifyWindow`). | `ChangeSelectionTests.Clicking_a_table_value_…` | Auto |
