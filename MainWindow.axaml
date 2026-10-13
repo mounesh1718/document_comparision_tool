@@ -119,7 +119,13 @@
 
         <Button x:Name="HistoryButton" Grid.Column="3" Click="History_Click" Padding="14,10"
                 ToolTip.Tip="Every comparison made on this computer: when, by whom, which files and what was found. Compare again or export to CSV.">History</Button>
-        <Button x:Name="CompareButton" Grid.Column="4" Classes="primary" Click="Compare_Click" IsEnabled="False">Compare</Button>
+        <StackPanel Grid.Column="4" Spacing="4" VerticalAlignment="Center">
+          <Button x:Name="CompareButton" Classes="primary" Click="Compare_Click" IsEnabled="False"
+                  HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">Compare</Button>
+          <CheckBox x:Name="HeadersFootersCheckBox" IsChecked="True" FontSize="12" MinHeight="0" Padding="4,0,0,0"
+                    IsCheckedChanged="HeadersFooters_Changed"
+                    ToolTip.Tip="Compare the headers and footers too. Switch off to leave them out: they are then not compared and not shown. Changing this compares again at once, and the choice is remembered.">Include headers &amp; footers</CheckBox>
+        </StackPanel>
       </Grid>
     </Border>
 

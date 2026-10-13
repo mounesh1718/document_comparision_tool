@@ -232,6 +232,14 @@ It is a **review aid**. It helps a reviewer find differences quickly and see the
 | FR-18.3 | From History: **Compare these files again**, **Export this comparison (CSV)**, **Export all (CSV)**, **Delete from history**, and **Clear history** (asks for confirmation). CSV files open correctly in Excel (UTF-8), and values that Excel would run as formulas are written as text. | ✅ Met | TC-HIS-03, TC-HIS-04, TC-MAN-12 |
 | FR-18.4 | The history is one file per user on this computer (`history.jsonl` in the user's application-data folder; on macOS `~/Library/Application Support/DocumentChecker/`). A damaged line is skipped without losing the other entries. | ✅ Met | TC-HIS-02 |
 
+### FR-19 Choosing what to compare
+
+| ID | Requirement | Status | Verified by |
+|---|---|---|---|
+| FR-19.1 | **Include headers & footers** (a checkbox under Compare, on by default). When it is off, headers and footers are **not compared** (no findings from them) and **not shown** in Reading view. Footnotes and endnotes are still compared. | ✅ Met | TC-OPT-01, TC-OPT-02, TC-OPT-04 |
+| FR-19.2 | Changing the checkbox after a comparison **compares again at once** with the new choice. The choice is **remembered** for the next session (`settings.json` next to the history). | ✅ Met | TC-OPT-03, TC-OPT-04 |
+| FR-19.3 | When headers and footers are off, it is stated everywhere the result appears: the status line ("headers & footers not checked"), the PDF report's scope, the history (and its CSV), and Exact pages (which still show them as printed, without marks). "Compare these files again" from History uses the choice saved with that comparison. | ✅ Met | TC-OPT-03, TC-OPT-04 |
+
 ---
 
 ## 5. Non-functional requirements

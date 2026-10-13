@@ -20,6 +20,7 @@ public sealed class ChangeSelectionTests
     [Trait("TC", "TC-UI-01")]
     [Trait("TC", "TC-UI-02")]
     [Trait("TC", "TC-HIS-04")]
+    [Trait("TC", "TC-OPT-04")]
     public void Clicking_a_table_value_or_image_region_focuses_its_exact_change_and_supports_reselection()
     {
         Exception? failure = null;
@@ -38,6 +39,11 @@ public sealed class ChangeSelectionTests
 
     private static void VerifySelection()
     {
+        // The windows below read and save settings and history: keep them away from the user's real files.
+        var scratch = Path.Combine(Path.GetTempPath(), $"DocumentChecker.UiTest.{Guid.NewGuid():N}");
+        Directory.CreateDirectory(scratch);
+        Environment.SetEnvironmentVariable("DOCHECK_SETTINGS_FILE", Path.Combine(scratch, "settings.json"));
+        Environment.SetEnvironmentVariable("DOCHECK_HISTORY_FILE", Path.Combine(scratch, "history.jsonl"));
         // Windows uses the real desktop platform. Elsewhere the window is drawn off screen by the headless platform
         // with the same Skia renderer, because macOS only allows windows on the process's main thread.
         var builder = AppBuilder.Configure<App>();
@@ -233,6 +239,7 @@ public sealed class ChangeSelectionTests
             ReviewMarkerTests.VerifyInWindow(window, Layout);
             PageCompareWindowTests.Verify();
             HistoryTests.VerifyWindow();
+            ComparisonOptionsTests.VerifyCheckBox();
         }
         finally { window.Close(); }
     }

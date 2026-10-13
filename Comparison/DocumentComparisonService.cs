@@ -19,8 +19,9 @@ public sealed class DocumentComparisonService
         _imageTextReader = imageTextReader ?? new SystemImageTextReader();
     }
 
-    public ComparisonResult Compare(string? referencePath, string? currentPath)
+    public ComparisonResult Compare(string? referencePath, string? currentPath, ComparisonOptions? options = null)
     {
+        var used = options ?? ComparisonOptions.Default;
         _differenceNumber = 0;
         _paragraphPairs = [];
         _tablePairs = [];
@@ -40,13 +41,15 @@ public sealed class DocumentComparisonService
                 [],
                 issues,
                 null,
-                null);
+                null,
+                Options: used);
         }
 
         var referenceHash = CalculateSha256(referencePath!);
         var currentHash = CalculateSha256(currentPath!);
-        var reference = referenceRead.Document!;
-        var current = currentRead.Document!;
+        // Parts the reviewer chose not to compare are left out of the comparison and of the documents shown.
+        var reference = InScope(referenceRead.Document!, used);
+        var current = InScope(currentRead.Document!, used);
 
         if (string.Equals(referenceHash, currentHash, StringComparison.Ordinal))
         {
@@ -57,7 +60,8 @@ public sealed class DocumentComparisonService
                 [],
                 [],
                 referenceHash,
-                currentHash);
+                currentHash,
+                Options: used);
         }
 
         var mixed = ImageTableComparer.Compare(reference, current, _imageTextReader);
@@ -88,7 +92,31 @@ public sealed class DocumentComparisonService
             ? ComparisonStatus.DocumentDataMatch
             : ComparisonStatus.Different;
 
-        return new ComparisonResult(status, reference, current, differences, [], referenceHash, currentHash, _paragraphPairs, _tablePairs);
+        return new ComparisonResult(status, reference, current, differences, [], referenceHash, currentHash, _paragraphPairs, _tablePairs, used);
+    }
+
+    /// <summary>
+    /// The document without the parts the reviewer chose not to compare. With headers and footers switched off, their
+    /// paragraphs, tables, images and review items are removed, so they are neither compared nor shown.
+    /// </summary>
+    private static DocumentModel InScope(DocumentModel document, ComparisonOptions options)
+    {
+        if (options.CompareHeadersAndFooters)
+            return document;
+        static bool Excluded(DocumentPart? part) => part?.Kind is DocumentPartKind.Header or DocumentPartKind.Footer;
+        var paragraphs = document.Paragraphs.Where(paragraph => Excluded(paragraph.Part)).Select(paragraph => paragraph.Index).ToHashSet();
+        var tables = document.DisplayBlocks.OfType<PartDisplayBlock>().Where(block => Excluded(block.Part))
+            .SelectMany(block => block.Blocks.OfType<TableDisplayBlock>()).Select(table => table.TableIndex).ToHashSet();
+        return document with
+        {
+            Paragraphs = document.Paragraphs.Where(paragraph => !paragraphs.Contains(paragraph.Index)).ToList(),
+            Images = document.ImageItems.Where(image => !paragraphs.Contains(image.ParagraphIndex)).ToList(),
+            Blocks = document.DisplayBlocks.Where(block => block is not PartDisplayBlock part || !Excluded(part.Part)).ToList(),
+            ReviewNotes = (document.ReviewNotes ?? [])
+                .Where(note => !(note.ParagraphIndex is { } paragraph && paragraphs.Contains(paragraph)) &&
+                               !(note.TableIndex is { } table && tables.Contains(table)))
+                .ToList()
+        };
     }
 
     private static DifferenceContentKind ContentKindFor(DocumentDifference difference, bool isReference)

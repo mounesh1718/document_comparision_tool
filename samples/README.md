@@ -45,6 +45,8 @@ Status: **"21 differences found · 1 to check yourself"** (the image change, bec
 | 16 | Paragraph "Retain samples must be stored…" deleted | 4. Stability | Deleted paragraph |
 | 17 | Footer "Rev **A**" → "Rev **B**" | Footer | Text change `A` → `B` |
 
+With **Include headers & footers** switched off, the result is **19 differences** (items 1 and 17 are not compared) and the status ends "headers & footers not checked".
+
 ### Checks that must produce no finding
 
 | # | Content | Expected |

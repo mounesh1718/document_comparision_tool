@@ -27,7 +27,7 @@ Run the tests:
 dotnet test tests/DocumentChecker.Engine.Tests/DocumentChecker.Engine.Tests.csproj
 ```
 
-The expected result on Windows or macOS with LibreOffice installed is **97 passed, 0 failed, 6 skipped**. The 6 skipped tests describe known gaps (see [docs/TEST_CASES.md](docs/TEST_CASES.md)).
+The expected result on Windows or macOS with LibreOffice installed is **100 passed, 0 failed, 6 skipped**. The 6 skipped tests describe known gaps (see [docs/TEST_CASES.md](docs/TEST_CASES.md)).
 
 ## SDK and platform
 
@@ -85,5 +85,5 @@ These are not packages. The tool uses them when they are installed and keeps wor
 
 - **Security:** SixLabors.ImageSharp 2.1.13 has 3 high and 2 moderate known vulnerabilities (the build lists them as warnings NU1902/NU1903). It reads every image in the documents, so it should be upgraded. ImageSharp **3.x** uses the Six Labors Split License, which needs a paid licence for larger companies, so check first whether a patched **2.1.x** release exists. List vulnerable packages with `dotnet list package --vulnerable`.
 - **Licences:** apart from the ImageSharp 3.x caveat, all packages are permissively licensed (MIT or Apache-2.0). LibreOffice is free (MPL-2.0). Word, Windows OCR and Apple Vision come with Office or the operating system.
-- **Local data:** documents are only read. Exact pages and Open in Word work on temporary copies, which are deleted when the app closes. The comparison history is stored for each user on this computer (macOS: `~/Library/Application Support/DocumentChecker/history.jsonl`; Windows: `%LOCALAPPDATA%\DocumentChecker\history.jsonl`) and can be cleared in the History window.
+- **Local data:** documents are only read. Exact pages and Open in Word work on temporary copies, which are deleted when the app closes. The comparison history and settings (`settings.json`, e.g. whether headers and footers are compared) are stored for each user on this computer (macOS: `~/Library/Application Support/DocumentChecker/history.jsonl`; Windows: `%LOCALAPPDATA%\DocumentChecker\history.jsonl`) and can be cleared in the History window.
 - **Confidential documents:** `.gitignore` keeps every `.docx` out of git, except the synthetic files in `samples/`.

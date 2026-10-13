@@ -4,7 +4,7 @@
 |---|---|
 | **Version described** | Commit `bf00bbf` plus the fixes of 2026-10-12 |
 | **Requirements** | [REQUIREMENTS.md](REQUIREMENTS.md). The **Req** column links each test case to a requirement ID. |
-| **Automated tests** | `tests/DocumentChecker.Engine.Tests` (xUnit): 79 test methods, 103 test cases including data variations. Each test is tagged with its test-case ID, for example `[Trait("TC", "TC-TBL-03")]`. |
+| **Automated tests** | `tests/DocumentChecker.Engine.Tests` (xUnit): 82 test methods, 106 test cases including data variations. Each test is tagged with its test-case ID, for example `[Trait("TC", "TC-TBL-03")]`. |
 
 ## How to run
 
@@ -12,9 +12,9 @@
 dotnet test tests/DocumentChecker.Engine.Tests/DocumentChecker.Engine.Tests.csproj
 ```
 
-Requires the .NET 10 SDK. Tests never write to the user's real comparison history (each history test uses its own file; `DOCHECK_HISTORY_FILE` can point trial runs at another file). Most tests build small Word files in a temporary folder, run the comparison, check the result and delete the files. TC-SMP-01 and TC-RPT-02 use the synthetic documents in `samples/`. No real customer documents are used.
+Requires the .NET 10 SDK. Tests never write to the user's real comparison history (each history test uses its own file; the UI test points `DOCHECK_HISTORY_FILE` and `DOCHECK_SETTINGS_FILE` at temporary files). Most tests build small Word files in a temporary folder, run the comparison, check the result and delete the files. TC-SMP-01 and TC-RPT-02 use the synthetic documents in `samples/`. No real customer documents are used.
 
-**Expected result today on Windows and macOS with LibreOffice installed:** 97 passed, 0 failed, 6 skipped (the 6 known-gap tests). Without LibreOffice, TC-EXV-03 is also skipped. On Linux the 3 OCR tests are also skipped, because Linux has no built-in text recognition.
+**Expected result today on Windows and macOS with LibreOffice installed:** 100 passed, 0 failed, 6 skipped (the 6 known-gap tests). Without LibreOffice, TC-EXV-03 is also skipped. On Linux the 3 OCR tests are also skipped, because Linux has no built-in text recognition.
 
 Run the tests of one test case:
 
@@ -59,6 +59,7 @@ DOCHECK_RUN_KNOWN_GAPS=1 dotnet test tests/DocumentChecker.Engine.Tests/Document
 | PDF report | RPT | 3 | – | – | – | – |
 | Exact pages | EXV | 2 (+1 with LibreOffice) | – | – | – | – |
 | Comparison history | HIS | 4 (5 test methods) | – | – | – | – |
+| Choosing what to compare | OPT | 4 | – | – | – | – |
 | Manual checks | MAN | – | – | – | 12 | – |
 | Known gaps and defects | GAP (15) | 4 fixed, now covered above | – | 6 | – | 5 |
 
@@ -271,6 +272,15 @@ Every case has a "Heading1" heading and an image or a table under it. TC-MIX-01 
 | TC-HIS-03 | FR-18.3 | CSV export | Entries with commas, quotes, line breaks, "=SUM(A1)" and "-0.5%" | Commas and line breaks are quoted, quotes doubled, and formula-like values start with an apostrophe so Excel shows them as text. | `HistoryTests.History_exports_to_csv_safely` | Auto |
 | TC-HIS-04 | FR-18.2, FR-18.3 | The History window | A history with the sample comparison | One entry listed; its details show the result, the file names, "Unchanged since this comparison" and "Row missing from Current 3"; "Compare these files again" hands both files to the main window. Runs inside the shared UI test (`HistoryTests.VerifyWindow`). | `ChangeSelectionTests.Clicking_a_table_value_…` | Auto |
 
+## 14c. Choosing what to compare (headers and footers)
+
+| ID | Req | Scenario | Input | Expected result | Automated test | Status |
+|---|---|---|---|---|---|---|
+| TC-OPT-01 | FR-19.1 | Headers and footers switched off | The sample pair | 19 findings instead of 21: the header ("Confidential") and footer ("Rev A") changes are gone; the footnote change remains. Neither document contains header or footer content; footnotes are still there. | `ComparisonOptionsTests.Without_headers_and_footers_their_changes_are_not_reported_and_they_are_not_shown` | Auto |
+| TC-OPT-02 | FR-19.1 | Documents that differ only in the header | Header "Confidential" vs "Internal" | With headers on: Different. With headers off: "No differences found", zero findings. | `ComparisonOptionsTests.Documents_that_differ_only_in_the_header_match_when_headers_are_switched_off` | Auto |
+| TC-OPT-03 | FR-19.2, FR-19.3 | The choice is recorded and remembered | The sample pair with headers off | The PDF scope says "Headers and footers were NOT compared"; the history entry has "headers and footers compared: No" (also in CSV), and the same files with headers on are a separate entry; the setting is saved and loaded (default on). | `ComparisonOptionsTests.Report_history_and_settings_record_that_headers_and_footers_were_not_compared` | Auto |
+| TC-OPT-04 | FR-19.1–19.3 | The checkbox on screen | The sample pair in the main window | Unticking compares again at once: HEADER and FOOTER areas disappear, FOOTNOTE 1 stays, 19 findings, the status ends "headers & footers not checked", the setting is saved. Ticking it brings them back (21 findings). Runs inside the shared UI test (`ComparisonOptionsTests.VerifyCheckBox`). | `ChangeSelectionTests.Clicking_a_table_value_…` | Auto |
+
 ## 15. Manual test cases
 
 Features that work today but have no automated test. Run them before each release.
@@ -338,6 +348,7 @@ These describe **what should happen**. Fixed gaps are marked ✅ and point to th
 | FR-16 Exact pages | TC-EXV-01…03, TC-UI-02, TC-MAN-09, TC-MAN-11 |
 | FR-17 Open the original | TC-MAN-10 |
 | FR-18 Comparison history | TC-HIS-01…04, TC-MAN-12 |
+| FR-19 Choosing what to compare | TC-OPT-01…04 |
 | NFR-03, NFR-04, NFR-07 | TC-GAP-12, TC-MAN-06, TC-MAN-07, TC-GAP-15 |
 
 **Not covered by any test:** FR-01.3 error cases other than "file in use", FR-08.7 (image size, alt text, title, alignment and placement changes), most review-item types in FR-10.1 (text box, block content control, tracked changes, and so on), and NFR-09 (dependency vulnerabilities; check with `dotnet list package --vulnerable`).

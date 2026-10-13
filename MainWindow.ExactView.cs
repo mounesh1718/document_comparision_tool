@@ -113,9 +113,11 @@ public partial class MainWindow
 
         (ExactDocument? Document, string? Error) Load(string? hash, string path, Reading.DocumentModel model)
         {
+            // The laid-out pages depend only on the file; the locator is rebuilt for this comparison's document,
+            // which can differ (for example with headers and footers switched off).
             lock (_exactCache)
-                if (hash is not null && _exactCache.TryGetValue(hash, out var cached))
-                    return cached;
+                if (hash is not null && _exactCache.TryGetValue(hash, out var cached) && cached.Document is { } pages)
+                    return (pages with { Locator = new PageLocator(model, pages.Pages) }, null);
             var loaded = ExactDocument.Load(path, model, layoutFolder);
             lock (_exactCache)
                 if (hash is not null && loaded.Document is not null)
@@ -168,7 +170,10 @@ public partial class MainWindow
     {
         panel.Children.Add(new TextBlock
         {
-            Text = $"{document.Pages.Count} page{(document.Pages.Count == 1 ? "" : "s")} · laid out by {document.Engine}",
+            Text = $"{document.Pages.Count} page{(document.Pages.Count == 1 ? "" : "s")} · laid out by {document.Engine}" +
+                   (_comparisonResult?.UsedOptions.CompareHeadersAndFooters == false ? " · headers and footers are shown as printed but were not compared" : ""),
+            TextWrapping = TextWrapping.Wrap,
+            TextAlignment = TextAlignment.Center,
             FontSize = 11.5,
             Foreground = new SolidColorBrush(Color.Parse("#64748B")),
             HorizontalAlignment = HorizontalAlignment.Center

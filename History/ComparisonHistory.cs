@@ -32,7 +32,8 @@ public sealed record HistoryEntry(
     int Differences,
     int ToCheck,
     IReadOnlyDictionary<string, int> ByChange,
-    IReadOnlyList<HistoryFinding> Findings);
+    IReadOnlyList<HistoryFinding> Findings,
+    bool HeadersAndFootersCompared = true);
 
 /// <summary>Whether a file still matches the fingerprint it had when it was compared.</summary>
 public enum HistoryFileState { Unchanged, Changed, Missing, Unknown }
@@ -99,7 +100,7 @@ public sealed class ComparisonHistory
             var latest = Load().FirstOrDefault();
             if (latest is not null && latest.Reference.Sha256 == entry.Reference.Sha256 && latest.Current.Sha256 == entry.Current.Sha256 &&
                 latest.Reference.Path == entry.Reference.Path && latest.Current.Path == entry.Current.Path &&
-                latest.Result == entry.Result)
+                latest.Result == entry.Result && latest.HeadersAndFootersCompared == entry.HeadersAndFootersCompared)
                 return latest;
             Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
             if (StartsWithByteOrderMark())
@@ -176,7 +177,8 @@ public sealed class ComparisonHistory
                 FindingText.PrintableValue(difference.CurrentValue),
                 FindingText.Location(result.ReferenceDocument, difference.ReferenceLocation, difference.ReferenceImageId is not null),
                 FindingText.Location(result.CurrentDocument, difference.CurrentLocation, difference.CurrentImageId is not null),
-                NeedsChecking(difference))).ToList());
+                NeedsChecking(difference))).ToList(),
+            result.UsedOptions.CompareHeadersAndFooters);
     }
 
     private static bool NeedsChecking(DocumentDifference difference) =>
@@ -209,12 +211,12 @@ public sealed class ComparisonHistory
     {
         var csv = new StringBuilder();
         AppendRow(csv, "Compared at", "Reviewer", "Computer", "Reference file", "Reference SHA-256", "Current file", "Current SHA-256",
-            "Result", "Differences", "To check yourself", "Reference path", "Current path");
+            "Result", "Differences", "To check yourself", "Headers and footers compared", "Reference path", "Current path");
         foreach (var entry in entries)
             AppendRow(csv, entry.ComparedAt.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture), entry.Reviewer, entry.Computer,
                 entry.Reference.Name, entry.Reference.Sha256 ?? "", entry.Current.Name, entry.Current.Sha256 ?? "", entry.Result,
                 entry.Differences.ToString(CultureInfo.InvariantCulture), entry.ToCheck.ToString(CultureInfo.InvariantCulture),
-                entry.Reference.Path, entry.Current.Path);
+                entry.HeadersAndFootersCompared ? "Yes" : "No", entry.Reference.Path, entry.Current.Path);
         return csv.ToString();
     }
 
@@ -223,7 +225,8 @@ public sealed class ComparisonHistory
     {
         var csv = new StringBuilder();
         AppendRow(csv, "Compared at", entry.ComparedAt.ToString("yyyy-MM-dd HH:mm:ss zzz", CultureInfo.InvariantCulture),
-            "Reference", entry.Reference.Name, "Current", entry.Current.Name);
+            "Reference", entry.Reference.Name, "Current", entry.Current.Name,
+            "Headers and footers compared", entry.HeadersAndFootersCompared ? "Yes" : "No");
         AppendRow(csv, "ID", "Change", "Reference value", "Current value", "Reference location", "Current location", "Check yourself");
         foreach (var finding in entry.Findings)
             AppendRow(csv, finding.Id, finding.Change, finding.Reference, finding.Current, finding.ReferenceLocation, finding.CurrentLocation,

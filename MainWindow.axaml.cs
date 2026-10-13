@@ -41,6 +41,9 @@ public partial class MainWindow : Window
         HookOverviewUpdates();
         ShowWelcome();
         LabelOpenButtons();
+        _loadingSettings = true;
+        HeadersFootersCheckBox.IsChecked = DocumentChecker.Engine.History.AppSettings.Load().CompareHeadersAndFooters;
+        _loadingSettings = false;
         Dispatcher.UIThread.UnhandledException += KeepRunningAfterError;
     }
 
@@ -122,7 +125,8 @@ public partial class MainWindow : Window
         var currentPath = _currentPath;
         try
         {
-            var result = await Task.Run(() => _comparisonService.Compare(referencePath, currentPath));
+            var options = CurrentOptions();
+            var result = await Task.Run(() => _comparisonService.Compare(referencePath, currentPath, options));
             if (_closed || referencePath != _referencePath || currentPath != _currentPath)
                 return;
             _comparisonResult = result;
@@ -162,6 +166,8 @@ public partial class MainWindow : Window
             _ => $"{Plural(_comparisonResult.Differences.Count, "difference")} found" +
                  (reviewCount == 0 ? string.Empty : $" · {reviewCount} to check yourself")
         };
+        if (!_comparisonResult.UsedOptions.CompareHeadersAndFooters)
+            StatusText.Text += " · headers & footers not checked";
         LegendPanel.IsVisible = _comparisonResult.Status == ComparisonStatus.Different;
 
         _navigatorItems = BuildNavigatorItems(_comparisonResult.Differences);
@@ -197,12 +203,36 @@ public partial class MainWindow : Window
         }
     }
 
+    private bool _loadingSettings;
+
+    /// <summary>What the next comparison includes, as chosen under the Compare button.</summary>
+    private ComparisonOptions CurrentOptions() => new(CompareHeadersAndFooters: HeadersFootersCheckBox.IsChecked != false);
+
+    /// <summary>The header and footer choice is remembered and applies at once: an existing comparison is made again.</summary>
+    private void HeadersFooters_Changed(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (_loadingSettings)
+            return;
+        new DocumentChecker.Engine.History.AppSettings(CurrentOptions().CompareHeadersAndFooters).Save();
+        if (_comparisonResult is not { IsSuccess: true } || string.IsNullOrWhiteSpace(_referencePath) || string.IsNullOrWhiteSpace(_currentPath))
+            return;
+        if (_comparing)
+            ScheduleAutoRefresh();
+        else
+            _ = RunComparisonAsync(automatic: false);
+    }
+
     private async void History_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
         await new HistoryWindow(_history, CompareAgain).ShowDialog(this);
 
     /// <summary>Loads both files of a saved comparison and compares them again.</summary>
     private void CompareAgain(DocumentChecker.Engine.History.HistoryEntry entry)
     {
+        // The saved comparison is repeated with the same choice of headers and footers.
+        _loadingSettings = true;
+        HeadersFootersCheckBox.IsChecked = entry.HeadersAndFootersCompared;
+        _loadingSettings = false;
+        new DocumentChecker.Engine.History.AppSettings(entry.HeadersAndFootersCompared).Save();
         _referencePath = entry.Reference.Path;
         _currentPath = entry.Current.Path;
         ShowChosenFile(ReferencePathText, _referencePath);

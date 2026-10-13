@@ -185,7 +185,11 @@ internal sealed class HistoryWindow : Window
                             new TextBlock { Text = entry.ComparedAt.ToLocalTime().ToString("dd MMM yyyy, HH:mm", CultureInfo.CurrentCulture), FontWeight = FontWeight.SemiBold, Foreground = Brush("#172B4D") },
                             new TextBlock { Text = entry.Result, FontSize = 12.5, Foreground = Brush(entry.ToCheck > 0 ? "#92400E" : "#334155") },
                             new TextBlock { Text = $"{entry.Reference.Name}  →  {entry.Current.Name}", FontSize = 12, Foreground = Brush("#475569"), TextTrimming = TextTrimming.CharacterEllipsis },
-                            new TextBlock { Text = $"by {entry.Reviewer} on {entry.Computer}", FontSize = 11, Foreground = Brush("#94A3B8") }
+                            new TextBlock
+                            {
+                                Text = $"by {entry.Reviewer} on {entry.Computer}{(entry.HeadersAndFootersCompared ? "" : " · headers & footers not checked")}",
+                                FontSize = 11, Foreground = Brush("#94A3B8")
+                            }
                         }
                     }, 1)
                 }
@@ -212,6 +216,12 @@ internal sealed class HistoryWindow : Window
             Text = $"Compared on {entry.ComparedAt.ToLocalTime().ToString("dddd d MMMM yyyy 'at' HH:mm:ss", CultureInfo.CurrentCulture)} by {entry.Reviewer} on {entry.Computer}",
             Foreground = Brush("#475569"), TextWrapping = TextWrapping.Wrap
         });
+        if (!entry.HeadersAndFootersCompared)
+            _details.Children.Add(new TextBlock
+            {
+                Text = "Headers and footers were not compared in this comparison (switched off).",
+                Foreground = Brush("#92400E"), TextWrapping = TextWrapping.Wrap
+            });
         var files = new Grid { ColumnDefinitions = new ColumnDefinitions("*,*"), ColumnSpacing = 10 };
         files.Children.Add(FileBox("APPROVED · REFERENCE", "#9F1239", "#FFF5F6", "#FECDD3", entry.Reference));
         files.Children.Add(Column(FileBox("CURRENT", "#166534", "#F3FCF6", "#BBF7D0", entry.Current), 1));

@@ -81,6 +81,12 @@ public sealed record DocumentDifference(
     public ImageDifferenceRegion? RegionFor(bool isReference) => isReference ? ImageRegion : CurrentImageRegion ?? ImageRegion;
 }
 
+/// <summary>What a comparison includes. The reviewer chooses this before comparing.</summary>
+public sealed record ComparisonOptions(bool CompareHeadersAndFooters = true)
+{
+    public static ComparisonOptions Default { get; } = new();
+}
+
 public sealed record ComparisonResult(
     ComparisonStatus Status,
     DocumentModel? ReferenceDocument,
@@ -90,9 +96,13 @@ public sealed record ComparisonResult(
     string? ReferenceHash,
     string? CurrentHash,
     IReadOnlyList<ParagraphPair>? ParagraphPairs = null,
-    IReadOnlyList<TablePair>? TablePairs = null)
+    IReadOnlyList<TablePair>? TablePairs = null,
+    ComparisonOptions? Options = null)
 {
     public bool IsSuccess => Status != ComparisonStatus.InvalidInput;
+
+    /// <summary>The options the comparison used (all content when none were given).</summary>
+    public ComparisonOptions UsedOptions => Options ?? ComparisonOptions.Default;
 
     /// <summary>The table on the other side that a table was compared with, or null when it has none.</summary>
     public int? CounterpartTableOf(int tableIndex, bool isReference)

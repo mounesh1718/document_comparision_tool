@@ -104,7 +104,9 @@ public sealed class ComparisonReportGenerator
         AddKeyValueRow(details, "Reference document", result.ReferenceDocument?.FileName ?? "Not available");
         AddKeyValueRow(details, "Current document", result.CurrentDocument?.FileName ?? "Not available");
         AddKeyValueRow(details, "Review findings", $"{result.Differences.Count} finding(s); {result.Differences.Count(d => d.ReviewNote is not null)} need verification");
-        AddKeyValueRow(details, "Comparison scope", "Body text, headers, footers, footnotes, endnotes, direct formatting, basic tables and embedded images. Page-number and date fields in headers and footers are compared as fields. Metadata is excluded. OCR, inherited styles, full page layout and unsupported parts are not certified; review flagged content against the originals.");
+        AddKeyValueRow(details, "Comparison scope", result.UsedOptions.CompareHeadersAndFooters
+            ? "Body text, headers, footers, footnotes, endnotes, direct formatting, basic tables and embedded images. Page-number and date fields in headers and footers are compared as fields. Metadata is excluded. OCR, inherited styles, full page layout and unsupported parts are not certified; review flagged content against the originals."
+            : "Body text, footnotes, endnotes, direct formatting, basic tables and embedded images. Headers and footers were NOT compared (switched off for this comparison). Metadata is excluded. OCR, inherited styles, full page layout and unsupported parts are not certified; review flagged content against the originals.");
         section.AddParagraph().Format.SpaceAfter = Unit.FromPoint(3);
     }
 
