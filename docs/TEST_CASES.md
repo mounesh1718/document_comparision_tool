@@ -4,7 +4,7 @@
 |---|---|
 | **Version described** | Commit `bf00bbf` plus the fixes of 2026-10-12 |
 | **Requirements** | [REQUIREMENTS.md](REQUIREMENTS.md). The **Req** column links each test case to a requirement ID. |
-| **Automated tests** | `tests/DocumentChecker.Engine.Tests` (xUnit): 82 test methods, 106 test cases including data variations. Each test is tagged with its test-case ID, for example `[Trait("TC", "TC-TBL-03")]`. |
+| **Automated tests** | `tests/DocumentChecker.Engine.Tests` (xUnit): 83 test methods, 107 test cases including data variations. Each test is tagged with its test-case ID, for example `[Trait("TC", "TC-TBL-03")]`. |
 
 ## How to run
 
@@ -12,9 +12,9 @@
 dotnet test tests/DocumentChecker.Engine.Tests/DocumentChecker.Engine.Tests.csproj
 ```
 
-Requires the .NET 10 SDK. Tests never write to the user's real comparison history (each history test uses its own file; the UI test points `DOCHECK_HISTORY_FILE` and `DOCHECK_SETTINGS_FILE` at temporary files). Most tests build small Word files in a temporary folder, run the comparison, check the result and delete the files. TC-SMP-01 and TC-RPT-02 use the synthetic documents in `samples/`. No real customer documents are used.
+Requires the .NET 10 SDK. Tests never open Microsoft Word (the Exact pages tests and the UI test set `DOCHECK_LAYOUT_ENGINE=libreoffice`, which switches Word off for the run) and never write to the user's real comparison history (each history test uses its own file; the UI test points `DOCHECK_HISTORY_FILE` and `DOCHECK_SETTINGS_FILE` at temporary files). Most tests build small Word files in a temporary folder, run the comparison, check the result and delete the files. TC-SMP-01 and TC-RPT-02 use the synthetic documents in `samples/`. No real customer documents are used.
 
-**Expected result today on Windows and macOS with LibreOffice installed:** 100 passed, 0 failed, 6 skipped (the 6 known-gap tests). Without LibreOffice, TC-EXV-03 is also skipped. On Linux the 3 OCR tests are also skipped, because Linux has no built-in text recognition.
+**Expected result today on Windows and macOS with LibreOffice installed:** 101 passed, 0 failed, 6 skipped (the 6 known-gap tests). Without LibreOffice, TC-EXV-03 is also skipped, and the UI test leaves out its TC-EXV-05 part. On Linux the 3 OCR tests are also skipped, because Linux has no built-in text recognition.
 
 Run the tests of one test case:
 
@@ -57,10 +57,10 @@ DOCHECK_RUN_KNOWN_GAPS=1 dotnet test tests/DocumentChecker.Engine.Tests/Document
 | Sample documents | SMP | 1 | – | – | – | – |
 | Viewer (UI) | UI | 2 (one test method) | – | – | – | – |
 | PDF report | RPT | 3 | – | – | – | – |
-| Exact pages | EXV | 2 (+1 with LibreOffice) | – | – | – | – |
+| Exact pages | EXV | 3 (+2 with LibreOffice) | – | – | – | – |
 | Comparison history | HIS | 4 (5 test methods) | – | – | – | – |
 | Choosing what to compare | OPT | 4 | – | – | – | – |
-| Manual checks | MAN | – | – | – | 12 | – |
+| Manual checks | MAN | – | – | – | 13 | – |
 | Known gaps and defects | GAP (15) | 4 fixed, now covered above | – | 6 | – | 5 |
 
 ---
@@ -261,7 +261,9 @@ Every case has a "Heading1" heading and an image or a table under it. TC-MIX-01 
 |---|---|---|---|---|---|---|
 | TC-EXV-01 | FR-16.1 | PDFium reads a real PDF | The app's own PDF report | One A4 page (595 points wide), a picture with dark pixels on white, and its text "DOCX Comparison Report" with every character inside the page. | `ExactViewTests.Pdfium_draws_pages_and_reads_their_characters` | Auto |
 | TC-EXV-02 | FR-16.2, FR-16.3 | Differences are found on a page | A made-up page with a header, a title, a short value "3.0" that also appears later, a symbol drawn without text, and a paragraph hidden in the document | "95.0%" is boxed at its exact position; "3.0" on its own line, not inside the longer paragraph; the header is found; "≤" gets a thin caret before "1.0%"; hidden text has no box; an added paragraph is a line above the paragraph it precedes. | `ExactViewTests.Differences_are_found_on_the_page_where_they_are_printed` | Auto |
-| TC-EXV-03 | FR-16.1, FR-16.2, FR-16.5 | The sample documents laid out end to end | `samples/` pair, laid out with LibreOffice | 2–4 pages per document, laid out by LibreOffice. Every difference is marked on each side where it exists, except text hidden in Current. The Assay value is on page 1; the image change on a later page; the inserted paragraph is a gap line in the approved document. | `ExactViewTests.Sample_documents_are_laid_out_and_every_visible_difference_is_marked` | Auto (LibreOffice) |
+| TC-EXV-03 | FR-16.1, FR-16.2, FR-16.5 | The sample documents laid out end to end | `samples/` pair, laid out with LibreOffice (chosen explicitly) | 2–4 pages per document, laid out by LibreOffice. Every difference is marked on each side where it exists, except text hidden in Current. The Assay value is on page 1; the image change on a later page; the inserted paragraph is a gap line in the approved document. | `ExactViewTests.Sample_documents_are_laid_out_and_every_visible_difference_is_marked` | Auto (LibreOffice) |
+| TC-EXV-04 | FR-16.1a, FR-16.1b | The chosen layout program is used, never swapped | Word chosen while Word is switched off for the run; a settings file | No PDF and no engine; the reason says Word is "switched off"; the temporary copy is deleted. The layout choice defaults to Word, is saved and read back as LibreOffice, and a settings file saved before the choice existed reads as Word. | `ExactViewTests.The_chosen_layout_engine_is_used_or_its_problem_is_reported_without_switching_engines` | Auto |
+| TC-EXV-05 | FR-16.1a, FR-16.1b | The "Laid out by" switch on screen | The sample pair in the main window, Word switched off for the run | The switch appears only in Exact pages, with Microsoft Word chosen. Both panes give the reason and a "Use LibreOffice instead" button; no pages are shown. Clicking it lays both documents out with LibreOffice ("laid out by LibreOffice"), marks the differences on both, checks the LibreOffice button and saves the choice. Choosing Word again drops the LibreOffice pages and shows the reason; choosing LibreOffice again shows the pages from the cache at once. Runs inside the shared UI test (`ExactViewTests.VerifyEngineSwitch`). | `ChangeSelectionTests.Clicking_a_table_value_…` | Auto (LibreOffice) |
 
 ## 14b. Comparison history
 
@@ -299,6 +301,7 @@ Features that work today but have no automated test. Run them before each releas
 | TC-MAN-10 | FR-17.1 | Click **Open in Word** above each document, then try to save in Word. | Word opens "… (read-only copy).docx"; saving asks for a new name (the copy is read-only), and the original file is unchanged. |
 | TC-MAN-11 | FR-16.6 | Select a difference, click **Show on the real pages**, then press → several times, try − / +, Whole page and Zoom to change, and press Esc. | The window shows the approved and Current pages side by side, zoomed to the change with it outlined on both. → moves on and the main window's list follows. For hidden text, the Current side says it is not visible and shows the same area. For an inserted paragraph, the approved side shows a pink line where it would be. Esc closes the window. |
 | TC-MAN-12 | FR-18 | 1. Compare the sample documents. 2. Click **History**. 3. Search for "RevB". 4. Click **Export all (CSV)** and **Export this comparison (CSV)** and open both in Excel. 5. Edit and save Current in Word, compare again, and open History. 6. Click **Compare these files again** on the older entry. 7. Delete one entry, then Clear history. | The comparison is listed with date, reviewer, files and result. The CSV files open in Excel with correct symbols (≤, µ). After step 5 there are two entries and the older one says Current "changed since". Step 6 loads both files in the main window and compares them. Clear asks for confirmation. |
+| TC-MAN-13 | FR-16.1a, FR-16.1b | On a **Mac or Windows PC with activated Microsoft Word**: compare the samples, click **Exact pages**, keep **Laid out by: Microsoft Word**. Repeat with Word already open on one of your own documents. Then click **LibreOffice**, then **Microsoft Word** again. Finally once on a computer where Word is not activated. | Word closed: Word starts in the background (on a Mac the first time it may ask "Grant File Access" for its working folder: click Grant), the pages say "laid out by Microsoft Word", and Word quits afterwards. Word open: your document stays open and unchanged, Word keeps running, the pages say "laid out by Microsoft Word". LibreOffice: the pages are laid out again ("laid out by LibreOffice") and the marks move with the new page breaks; Word again is instant (reused). Not activated: both panes say "Microsoft Word could not save a PDF: Word may need to be activated…" with **Use LibreOffice instead**, and no LibreOffice pages appear until you click it. Restart the app: the last choice is kept. |
 
 ---
 
@@ -345,7 +348,7 @@ These describe **what should happen**. Fixed gaps are marked ✅ and point to th
 | FR-13 Findings list | TC-UI-01, TC-MAN-01, TC-MAN-03, TC-GAP-07, TC-GAP-08 |
 | FR-14 Auto refresh | TC-MAN-04, TC-GAP-09 |
 | FR-15 PDF report | TC-RPT-01…03, TC-MAN-05 |
-| FR-16 Exact pages | TC-EXV-01…03, TC-UI-02, TC-MAN-09, TC-MAN-11 |
+| FR-16 Exact pages | TC-EXV-01…05, TC-UI-02, TC-MAN-09, TC-MAN-11, TC-MAN-13 |
 | FR-17 Open the original | TC-MAN-10 |
 | FR-18 Comparison history | TC-HIS-01…04, TC-MAN-12 |
 | FR-19 Choosing what to compare | TC-OPT-01…04 |

@@ -8,6 +8,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using DocumentChecker.Engine.Comparison;
+using DocumentChecker.Engine.ExactView;
 using DocumentChecker.Engine.Reading;
 using DocumentChecker.Engine.Reporting;
 
@@ -42,7 +43,10 @@ public partial class MainWindow : Window
         ShowWelcome();
         LabelOpenButtons();
         _loadingSettings = true;
-        HeadersFootersCheckBox.IsChecked = DocumentChecker.Engine.History.AppSettings.Load().CompareHeadersAndFooters;
+        var settings = DocumentChecker.Engine.History.AppSettings.Load();
+        HeadersFootersCheckBox.IsChecked = settings.CompareHeadersAndFooters;
+        _layoutEngine = Enum.TryParse<LayoutEngine>(settings.LayoutEngine, ignoreCase: true, out var engine) ? engine : LayoutEngine.Word;
+        ShowLayoutEngine();
         _loadingSettings = false;
         Dispatcher.UIThread.UnhandledException += KeepRunningAfterError;
     }
@@ -205,6 +209,10 @@ public partial class MainWindow : Window
 
     private bool _loadingSettings;
 
+    /// <summary>Remembers the reviewer's choices (headers and footers, layout engine) for the next session.</summary>
+    private void SaveSettings() =>
+        new DocumentChecker.Engine.History.AppSettings(CurrentOptions().CompareHeadersAndFooters, _layoutEngine.ToString()).Save();
+
     /// <summary>What the next comparison includes, as chosen under the Compare button.</summary>
     private ComparisonOptions CurrentOptions() => new(CompareHeadersAndFooters: HeadersFootersCheckBox.IsChecked != false);
 
@@ -213,7 +221,7 @@ public partial class MainWindow : Window
     {
         if (_loadingSettings)
             return;
-        new DocumentChecker.Engine.History.AppSettings(CurrentOptions().CompareHeadersAndFooters).Save();
+        SaveSettings();
         if (_comparisonResult is not { IsSuccess: true } || string.IsNullOrWhiteSpace(_referencePath) || string.IsNullOrWhiteSpace(_currentPath))
             return;
         if (_comparing)
@@ -232,7 +240,7 @@ public partial class MainWindow : Window
         _loadingSettings = true;
         HeadersFootersCheckBox.IsChecked = entry.HeadersAndFootersCompared;
         _loadingSettings = false;
-        new DocumentChecker.Engine.History.AppSettings(entry.HeadersAndFootersCompared).Save();
+        SaveSettings();
         _referencePath = entry.Reference.Path;
         _currentPath = entry.Current.Path;
         ShowChosenFile(ReferencePathText, _referencePath);

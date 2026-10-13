@@ -10,7 +10,7 @@ Seven flow diagrams, from the click on **Compare** to the screen, with the packa
 | **Windows OCR** / **Apple Vision** | Reading text in images (diagrams 4 and 5) |
 | **System.Security.Cryptography** (SHA-256) | Exact File Match, pairing images, history |
 | **Avalonia** 12.1.3 | The screen, including drawing Reading view (diagram 7) |
-| **Microsoft Word** / **LibreOffice** | Laying out the real pages for Exact pages (diagram 6) |
+| **Microsoft Word** or **LibreOffice** (the reviewer's choice) | Laying out the real pages for Exact pages (diagram 6) |
 | **PDFium** (bblanchon.PDFium 156.0.8066) | Page pictures and character positions for Exact pages (diagram 6) |
 | **PDFsharp-MigraDoc** 6.2.4 | The PDF report |
 | **System.Text.Json** | History, OCR results |
@@ -151,22 +151,26 @@ flowchart TD
 
 ## 6. Exact pages: marking the differences on the real pages
 
-Exact pages does not find differences. It takes the findings already made from the `.docx` (diagram 3) and marks them on the pages as Word or LibreOffice lays them out.
+Exact pages does not find differences. It takes the findings already made from the `.docx` (diagram 3) and marks them on the pages as Word or LibreOffice lays them out. The reviewer chooses the program with the **Laid out by: Microsoft Word | LibreOffice** switch; the tool uses exactly that program and never swaps it silently.
 
 ```mermaid
 flowchart TD
   C["Comparison already done<br/>findings with their character ranges"] --> CL["Reviewer clicks 'Exact pages'<br/>or 'Show on the real pages'"]
-  CL --> CACHE{"Pages already made for this file?<br/>same SHA-256 fingerprint"}
+  CL --> ENG["Layout program chosen with 'Laid out by'<br/>Microsoft Word or LibreOffice<br/>remembered in settings.json"]
+  SW["Reviewer switches the program"] -->|"pages of the other program dropped,<br/>laid out again"| ENG
+  ENG --> CACHE{"Pages already made for this file<br/>with this program?<br/>SHA-256 fingerprint + program"}
   CACHE -->|yes| LOC
   CACHE -->|no| COPY["Copy the .docx to a temporary folder<br/>the layout program never opens the original"]
-  COPY --> WINQ{"Windows with Microsoft Word?"}
-  WINQ -->|yes| WORD["Microsoft Word, invisible, through PowerShell<br/>open read-only, export as PDF"]
-  WINQ -->|no| LO["LibreOffice, no window<br/>soffice --headless --convert-to pdf<br/>with its own profile in the temporary folder"]
-  WORD -->|"Word not available"| LO
-  WORD --> PDFB["PDF of the real pages"]
-  LO --> GOT{"PDF produced?"}
-  GOT -->|no| MSG["Message: Exact pages needs<br/>Microsoft Word or LibreOffice"]
-  GOT -->|yes| PDFB
+  COPY --> WINQ{"Which program was chosen?"}
+  WINQ -->|"Word, on Windows"| WORD["Microsoft Word, invisible, through PowerShell<br/>open read-only, export as PDF"]
+  WINQ -->|"Word, on a Mac"| MACW["Microsoft Word through AppleScript<br/>copy kept in a fixed folder: 'Grant File Access' asked once<br/>download flag removed from the copy only<br/>opened in the background, saved as PDF, the copy closed<br/>Word quit only if the tool started it"]
+  WINQ -->|"LibreOffice"| LO["LibreOffice, no window<br/>soffice --headless --convert-to pdf<br/>with its own profile in the temporary folder"]
+  WORD --> GOT{"PDF produced?"}
+  MACW --> GOT
+  LO --> GOT
+  GOT -->|no| MSG["The reason in both panes<br/>for example Word not activated, or not installed<br/>+ button 'Use LibreOffice instead' or<br/>'Use Microsoft Word instead'"]
+  MSG -->|"reviewer clicks it"| SW
+  GOT -->|yes| PDFB["PDF of the real pages"]
   PDFB --> PDFIUM["PDFium · bblanchon.PDFium<br/>for each page: size in points,<br/>a picture of the page at 144 dpi,<br/>every character with its box,<br/>every picture with its box"]
   PDFIUM --> LOC["PageLocator<br/>match the document's paragraphs to the page's characters:<br/>spaces and line breaks ignored,<br/>long unique paragraphs anchor the match,<br/>short ones searched only between anchors,<br/>symbols missing from the PDF text tolerated"]
   LOC --> RECT["Each finding becomes boxes on a page<br/>text: its characters, one box per line<br/>table finding: a box round the table<br/>image finding: the picture's box + the changed area scaled<br/>content only in the other document: a pink line where it belongs<br/>hidden text: no box, the pane says so"]

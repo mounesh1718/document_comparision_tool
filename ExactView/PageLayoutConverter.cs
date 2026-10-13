@@ -3,22 +3,40 @@ using System.Text;
 
 namespace DocumentChecker.Engine.ExactView;
 
+/// <summary>The program the reviewer chose to lay the pages out with.</summary>
+public enum LayoutEngine { Word, LibreOffice }
+
 /// <summary>The PDF a layout engine produced for a document, or why none could be produced.</summary>
-public sealed record PdfLayout(byte[]? Pdf, string? Engine, string? Error);
+public sealed record PdfLayout(byte[]? Pdf, string? Engine, string? Error, string? Note = null);
 
 /// <summary>
-/// Lays a .docx out as real pages by printing it to PDF with a word processor installed on this computer:
-/// Microsoft Word on Windows (exactly what Word prints), otherwise LibreOffice (free, nearly identical).
-/// The engine always works on a temporary copy, so the original file is never opened by it.
+/// Lays a .docx out as real pages by printing it to PDF with the program the reviewer chose:
+/// Microsoft Word (exactly what Word prints; COM automation on Windows, AppleScript on macOS) or LibreOffice (free,
+/// nearly identical, any system). The choice is respected: when the chosen program cannot make the pages, the reason
+/// is returned instead of silently using the other one. The program always works on a temporary copy, so the
+/// original file is never opened by it. DOCHECK_LAYOUT_ENGINE=libreoffice switches Word off (the tests do, so
+/// they never open Word).
 /// </summary>
 public static class PageLayoutConverter
 {
     private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(2);
+    private const string MacWord = "/Applications/Microsoft Word.app";
+    // Once Word on the Mac has failed for a reason that will not change (for example not activated), it is not tried
+    // again in this session, so the reviewer does not wait for it every time.
+    private static string? _macWordUnavailable;
 
     public const string NoEngineMessage =
-        "Exact view needs Microsoft Word (on Windows) or LibreOffice (free, for Windows, macOS and Linux). Install one of them, or use Reading view.";
+        "Exact view needs Microsoft Word or LibreOffice (free, for Windows, macOS and Linux). Install one of them, or use Reading view.";
 
-    public static PdfLayout Convert(string docxPath, string workDirectory)
+    private static bool WordAllowed =>
+        !string.Equals(Environment.GetEnvironmentVariable("DOCHECK_LAYOUT_ENGINE"), "libreoffice", StringComparison.OrdinalIgnoreCase);
+
+    public static string NameOf(LayoutEngine engine) => engine == LayoutEngine.Word ? "Microsoft Word" : "LibreOffice";
+
+    /// <summary>After the reviewer chooses Word again (for example once Office is activated), Word is tried again.</summary>
+    public static void RetryWord() => _macWordUnavailable = null;
+
+    public static PdfLayout Convert(string docxPath, string workDirectory, LayoutEngine engine = LayoutEngine.Word)
     {
         Directory.CreateDirectory(workDirectory);
         var name = "layout-" + Guid.NewGuid().ToString("N");
@@ -27,21 +45,33 @@ public static class PageLayoutConverter
         File.Copy(docxPath, copy, overwrite: true);
         try
         {
-            string? wordError = null;
+            if (engine == LayoutEngine.LibreOffice)
+            {
+                if (FindLibreOffice() is not { } libreOffice)
+                    return new(null, null, "LibreOffice is not installed on this computer. Install it (free, libreoffice.org), or choose Microsoft Word.");
+                var error = RunLibreOffice(libreOffice, copy, workDirectory);
+                return error is null && File.Exists(pdf)
+                    ? new(File.ReadAllBytes(pdf), "LibreOffice", null)
+                    : new(null, null, error ?? "LibreOffice did not produce the pages.");
+            }
+
+            if (!WordAllowed)
+                return new(null, null, "Microsoft Word is switched off for this run (DOCHECK_LAYOUT_ENGINE). Choose LibreOffice.");
             if (OperatingSystem.IsWindows())
             {
-                wordError = RunWord(copy, pdf);
-                if (wordError is null && File.Exists(pdf))
-                    return new(File.ReadAllBytes(pdf), "Microsoft Word", null);
+                var error = RunWord(copy, pdf);
+                return error is null && File.Exists(pdf)
+                    ? new(File.ReadAllBytes(pdf), "Microsoft Word", null)
+                    : new(null, null, (error ?? "Microsoft Word did not produce the pages.") + " Is Microsoft Word installed? You can choose LibreOffice instead.");
             }
-            if (FindLibreOffice() is { } libreOffice)
+            if (OperatingSystem.IsMacOS())
             {
-                var error = RunLibreOffice(libreOffice, copy, workDirectory);
-                if (error is null && File.Exists(pdf))
-                    return new(File.ReadAllBytes(pdf), "LibreOffice", null);
-                return new(null, null, error ?? "LibreOffice did not produce the pages.");
+                var (wordPdf, reason) = RunWordOnMac(docxPath);
+                return wordPdf is not null
+                    ? new(wordPdf, "Microsoft Word", null)
+                    : new(null, null, reason ?? "Microsoft Word is not installed on this computer. Choose LibreOffice instead.");
             }
-            return new(null, null, wordError is null ? NoEngineMessage : NoEngineMessage + " (Word: " + wordError + ")");
+            return new(null, null, "Microsoft Word is not available on this system. Choose LibreOffice instead.");
         }
         finally
         {
@@ -76,6 +106,101 @@ public static class PageLayoutConverter
         start.ArgumentList.Add("-EncodedCommand");
         start.ArgumentList.Add(System.Convert.ToBase64String(Encoding.Unicode.GetBytes(script)));
         return Run(start, "Microsoft Word");
+    }
+
+    /// <summary>
+    /// Prints a copy to PDF with Microsoft Word on macOS. Word is sandboxed and scripted with AppleScript, so:
+    /// the copy goes to a fixed folder (Word asks once, "Grant File Access", and then remembers it); the download
+    /// quarantine flag is removed from the copy only (otherwise Word opens it in Protected View, out of reach of
+    /// scripts); and the copy is opened as Finder would, in the background. Only the copy is opened and closed:
+    /// when Word was already open, the reviewer's own documents are left as they are and Word keeps running;
+    /// when the tool started Word, it quits it again afterwards.
+    /// Returns the PDF, or the reason Word could not make it (null when Word is not installed).
+    /// </summary>
+    private static (byte[]? Pdf, string? Reason) RunWordOnMac(string docxPath)
+    {
+        if (!Directory.Exists(MacWord))
+            return (null, null);
+        if (_macWordUnavailable is { } known)
+            return (null, known);
+        var wasRunning = Process.GetProcessesByName("Microsoft Word").Length > 0;
+
+        var folder = Path.Combine(Path.GetTempPath(), "DocumentChecker", "word-layout");
+        Directory.CreateDirectory(folder);
+        var name = "layout-" + Guid.NewGuid().ToString("N")[..12];
+        var copy = Path.Combine(folder, name + ".docx");
+        var pdf = Path.Combine(folder, name + ".pdf");
+        File.Copy(docxPath, copy, overwrite: true);
+        try
+        {
+            RunTool("/usr/bin/xattr", ["-d", "com.apple.quarantine", copy], TimeSpan.FromSeconds(10));
+            RunTool("/usr/bin/open", ["-g", "-a", "Microsoft Word", copy], TimeSpan.FromSeconds(30));
+            var (exitCode, output) = RunTool("/usr/bin/osascript", ["-e", MacWordScript, pdf, name + ".docx"], Timeout);
+            if (exitCode == 0 && File.Exists(pdf))
+                return (File.ReadAllBytes(pdf), null);
+
+            if (output.Contains("-1708", StringComparison.Ordinal))
+                return (null, _macWordUnavailable = "Microsoft Word could not save a PDF: Word may need to be activated or signed in (File > Save As is not allowed).");
+            if (output.Contains("DOCHECK-TIMEOUT", StringComparison.Ordinal))
+                return (null, "Microsoft Word did not open the document in time. If Word asks to \"Grant File Access\", click Grant and try again.");
+            return (null, "Microsoft Word could not lay out the pages.");
+        }
+        finally
+        {
+            // A Word the tool started is quit even when it failed, so no temporary copy stays open in it.
+            // A Word that was already open keeps running with the reviewer's documents; the copy was closed by the script.
+            if (!wasRunning && Process.GetProcessesByName("Microsoft Word").Length > 0)
+                RunTool("/usr/bin/osascript", ["-e", "tell application \"Microsoft Word\" to quit saving no"], TimeSpan.FromSeconds(30));
+            else if (wasRunning)
+                RunTool("/usr/bin/osascript", ["-e", $"tell application \"Microsoft Word\" to if exists document \"{name}.docx\" then close document \"{name}.docx\" saving no"], TimeSpan.FromSeconds(30));
+            TryDelete(copy);
+            TryDelete(pdf);
+            TryDelete(Path.Combine(folder, "~$" + name + ".docx"));
+        }
+    }
+
+    /// <summary>Waits for Word to open the copy, saves it as PDF, and closes it. Arguments: PDF path, document name.</summary>
+    private const string MacWordScript = """
+        on run argv
+            set pdfPath to item 1 of argv
+            set documentName to item 2 of argv
+            tell application "Microsoft Word"
+                set waited to 0
+                repeat while not (exists document documentName)
+                    delay 0.25
+                    set waited to waited + 0.25
+                    if waited > 90 then error "DOCHECK-TIMEOUT"
+                end repeat
+                set theDocument to document documentName
+                save as theDocument file name pdfPath file format format PDF
+                close theDocument saving no
+            end tell
+            return "ok"
+        end run
+        """;
+
+    /// <summary>Runs a command-line tool and returns its exit code and output (stdout and stderr).</summary>
+    private static (int ExitCode, string Output) RunTool(string fileName, IEnumerable<string> arguments, TimeSpan timeout)
+    {
+        try
+        {
+            var start = new ProcessStartInfo(fileName) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true };
+            foreach (var argument in arguments)
+                start.ArgumentList.Add(argument);
+            using var process = Process.Start(start)!;
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit(timeout))
+            {
+                process.Kill(entireProcessTree: true);
+                return (-1, "timed out");
+            }
+            return (process.ExitCode, output.GetAwaiter().GetResult() + error.GetAwaiter().GetResult());
+        }
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+        {
+            return (-1, exception.Message);
+        }
     }
 
     private static string? RunLibreOffice(string soffice, string docx, string outputDirectory)

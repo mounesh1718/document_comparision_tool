@@ -20,6 +20,7 @@ A desktop tool that compares a **Current** Word document (`.docx`) against an ap
    ```
 
 3. Choose the approved document in **① Approved (Reference)**, the document to check in **② To check (Current)**, and click **Compare**. To try it, use the two files in `samples/`.
+4. Click **Exact pages** to see the real pages with the differences marked. **Laid out by: Microsoft Word | LibreOffice** chooses the program that lays them out; switching lays the pages out again with that program.
 
 Run the tests:
 
@@ -27,7 +28,7 @@ Run the tests:
 dotnet test tests/DocumentChecker.Engine.Tests/DocumentChecker.Engine.Tests.csproj
 ```
 
-The expected result on Windows or macOS with LibreOffice installed is **100 passed, 0 failed, 6 skipped**. The 6 skipped tests describe known gaps (see [docs/TEST_CASES.md](docs/TEST_CASES.md)).
+The expected result on Windows or macOS with LibreOffice installed is **101 passed, 0 failed, 6 skipped**. The 6 skipped tests describe known gaps (see [docs/TEST_CASES.md](docs/TEST_CASES.md)).
 
 ## SDK and platform
 
@@ -78,12 +79,12 @@ These are not packages. The tool uses them when they are installed and keeps wor
 |---|---|---|
 | **Windows OCR** (`Windows.Media.Ocr`, run through Windows PowerShell) | Reading text in images on Windows. Needs an installed OCR language. | Image changes are shown as visual changes with crops, without the values |
 | **Apple Vision** (run through `osascript`, built into macOS 10.15+) | Reading text in images on macOS | As above |
-| **Microsoft Word** (through its automation interface, on Windows) | Laying out **Exact pages** exactly as Word prints them; **Open in Word** | Exact pages uses LibreOffice; Open in Word uses the default app for `.docx` |
-| **LibreOffice** (`soffice --headless`, free, any system) | Laying out **Exact pages** where Word is not used (always on macOS and Linux) | Exact pages explains that Word or LibreOffice is needed; everything else works |
+| **Microsoft Word** (COM automation on Windows, AppleScript on macOS) | Laying out **Exact pages** exactly as Word prints them, when **Laid out by: Microsoft Word** is chosen (the default); **Open in Word**. Word must be activated to save PDFs. On macOS it asks once to "Grant File Access" to its working folder; only the tool's copy is opened and closed, and Word is quit only if the tool started it. | Exact pages gives the reason and a **Use LibreOffice instead** button; Open in Word uses the default app for `.docx` |
+| **LibreOffice** (`soffice --headless`, free, any system) | Laying out **Exact pages** when **Laid out by: LibreOffice** is chosen (the only choice that works on Linux). `DOCHECK_LAYOUT_ENGINE=libreoffice` switches Word off for a run (the tests use it). | Exact pages gives the reason and, if Word is installed, a **Use Microsoft Word instead** button; everything else works |
 
 ## Notes
 
 - **Security:** SixLabors.ImageSharp 2.1.13 has 3 high and 2 moderate known vulnerabilities (the build lists them as warnings NU1902/NU1903). It reads every image in the documents, so it should be upgraded. ImageSharp **3.x** uses the Six Labors Split License, which needs a paid licence for larger companies, so check first whether a patched **2.1.x** release exists. List vulnerable packages with `dotnet list package --vulnerable`.
 - **Licences:** apart from the ImageSharp 3.x caveat, all packages are permissively licensed (MIT or Apache-2.0). LibreOffice is free (MPL-2.0). Word, Windows OCR and Apple Vision come with Office or the operating system.
-- **Local data:** documents are only read. Exact pages and Open in Word work on temporary copies, which are deleted when the app closes. The comparison history and settings (`settings.json`, e.g. whether headers and footers are compared) are stored for each user on this computer (macOS: `~/Library/Application Support/DocumentChecker/history.jsonl`; Windows: `%LOCALAPPDATA%\DocumentChecker\history.jsonl`) and can be cleared in the History window.
+- **Local data:** documents are only read. Exact pages and Open in Word work on temporary copies, which are deleted when the app closes. The comparison history and settings (`settings.json`: whether headers and footers are compared, and which program lays out Exact pages) are stored for each user on this computer (macOS: `~/Library/Application Support/DocumentChecker/history.jsonl`; Windows: `%LOCALAPPDATA%\DocumentChecker\history.jsonl`) and can be cleared in the History window.
 - **Confidential documents:** `.gitignore` keeps every `.docx` out of git, except the synthetic files in `samples/`.

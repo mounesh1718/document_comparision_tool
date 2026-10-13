@@ -1,5 +1,11 @@
+using System.Reflection;
+using Avalonia.Controls;
+using Avalonia.Interactivity;
+using Avalonia.Threading;
+using Avalonia.VisualTree;
 using DocumentChecker.Engine.Comparison;
 using DocumentChecker.Engine.ExactView;
+using DocumentChecker.Engine.History;
 using DocumentChecker.Engine.Reading;
 using DocumentChecker.Engine.Reporting;
 using Xunit;
@@ -91,13 +97,16 @@ public sealed class ExactViewTests : IDisposable
         var referencePath = Path.Combine(samples, "Sample-Reference-RevA.docx");
         var currentPath = Path.Combine(samples, "Sample-Current-RevB.docx");
         var result = new DocumentComparisonService(new NoImageText()).Compare(referencePath, currentPath);
+        // Tests never open Microsoft Word on the tester's computer: LibreOffice only.
+        Environment.SetEnvironmentVariable("DOCHECK_LAYOUT_ENGINE", "libreoffice");
 
-        var (reference, referenceError) = ExactDocument.Load(referencePath, result.ReferenceDocument!, _directory);
-        var (current, currentError) = ExactDocument.Load(currentPath, result.CurrentDocument!, _directory);
+        var (reference, referenceError) = ExactDocument.Load(referencePath, result.ReferenceDocument!, _directory, LayoutEngine.LibreOffice);
+        var (current, currentError) = ExactDocument.Load(currentPath, result.CurrentDocument!, _directory, LayoutEngine.LibreOffice);
 
         Assert.True(reference is not null, referenceError);
         Assert.True(current is not null, currentError);
         Assert.Equal("LibreOffice", reference!.Engine);
+        Assert.Equal("LibreOffice", current!.Engine);
         Assert.InRange(reference.Pages.Count, 2, 4);
         // Every difference has a mark on each side where it exists, except text hidden in Current (it is not printed).
         foreach (var difference in result.Differences)
@@ -117,6 +126,130 @@ public sealed class ExactViewTests : IDisposable
         // The paragraph added in Current is shown as a gap line in the approved document.
         Assert.NotNull(reference.Locator.Gap(result.Differences.Single(d => d.Category == DifferenceCategory.ParagraphAdded), isReference: true));
     }
+
+    [Fact]
+    [Trait("TC", "TC-EXV-04")]
+    public void The_chosen_layout_engine_is_used_or_its_problem_is_reported_without_switching_engines()
+    {
+        Directory.CreateDirectory(_directory);
+        var reference = Path.Combine(FindSamples(), "Sample-Reference-RevA.docx");
+        // Word is switched off for test runs, so choosing it must fail with the reason, never quietly use LibreOffice.
+        Environment.SetEnvironmentVariable("DOCHECK_LAYOUT_ENGINE", "libreoffice");
+
+        var word = PageLayoutConverter.Convert(reference, _directory, LayoutEngine.Word);
+
+        Assert.Null(word.Pdf);
+        Assert.Null(word.Engine);
+        Assert.Contains("switched off", word.Error);
+        Assert.Equal("Microsoft Word", PageLayoutConverter.NameOf(LayoutEngine.Word));
+        Assert.Equal("LibreOffice", PageLayoutConverter.NameOf(LayoutEngine.LibreOffice));
+        // The temporary copy is removed again; the original is untouched.
+        Assert.Empty(Directory.EnumerateFiles(_directory));
+
+        // The choice is remembered between sessions; settings saved before the choice existed mean Word.
+        var settings = Path.Combine(_directory, "settings.json");
+        Assert.Equal("Word", AppSettings.Load(settings).LayoutEngine);
+        new AppSettings(LayoutEngine: "LibreOffice").Save(settings);
+        Assert.Equal("LibreOffice", AppSettings.Load(settings).LayoutEngine);
+        Assert.True(AppSettings.Load(settings).CompareHeadersAndFooters);
+        File.WriteAllText(settings, "{ \"CompareHeadersAndFooters\": false }");
+        Assert.Equal(new AppSettings(false, "Word"), AppSettings.Load(settings));
+    }
+
+    /// <summary>
+    /// The "Laid out by" switch in Exact pages, inside the shared UI test (Avalonia can only be set up once per
+    /// process). Word is switched off for test runs, so choosing it shows the reason and offers LibreOffice;
+    /// choosing LibreOffice lays the pages out again and marks the differences on them.
+    /// </summary>
+    internal static void VerifyEngineSwitch()
+    {
+        var samples = FindSamples();
+        var window = new MainWindow();
+        window.Show();
+        try
+        {
+            Set(window, "_referencePath", Path.Combine(samples, "Sample-Reference-RevA.docx"));
+            Set(window, "_currentPath", Path.Combine(samples, "Sample-Current-RevB.docx"));
+            var comparison = (Task)Invoke(window, "RunComparisonAsync", false)!;
+            WaitUntil(() => comparison.IsCompleted);
+            var engineSwitch = window.FindControl<StackPanel>("EngineSwitch")!;
+            var word = window.FindControl<Avalonia.Controls.Primitives.ToggleButton>("WordEngineButton")!;
+            var libreOffice = window.FindControl<Avalonia.Controls.Primitives.ToggleButton>("LibreOfficeEngineButton")!;
+            var referencePanel = window.FindControl<StackPanel>("ReferenceExactPanel")!;
+            Assert.False(engineSwitch.IsVisible);   // only in Exact pages
+
+            // Word is the default choice; it cannot be used here, so the reason and the other choice are shown.
+            Invoke(window, "SetExactMode", true);
+            Assert.True(engineSwitch.IsVisible);
+            Assert.True(word.IsChecked);
+            WaitUntil(() => Texts(referencePanel).Any(text => text.Contains("switched off")));
+            Assert.Null(Get(window, "_referenceExact"));
+            var useLibreOffice = referencePanel.GetVisualDescendants().OfType<Button>().Single();
+            Assert.Equal("Use LibreOffice instead", useLibreOffice.Content);
+            Capture(window, "word-unavailable");
+
+            useLibreOffice.RaiseEvent(new RoutedEventArgs(Button.ClickEvent));
+            WaitUntil(() => Get(window, "_referenceExact") is ExactDocument && Get(window, "_currentExact") is ExactDocument &&
+                            ((Dictionary<string, Control>)Get(window, "_referenceExactAnchors")).Count > 0);
+            Assert.Equal("LibreOffice", ((ExactDocument)Get(window, "_referenceExact")!).Engine);
+            Assert.True(libreOffice.IsChecked);
+            Assert.False(word.IsChecked);
+            Assert.Contains(Texts(referencePanel), text => text.Contains("laid out by LibreOffice"));
+            Assert.True(((Dictionary<string, Control>)Get(window, "_currentExactAnchors")).Count > 0);
+            Assert.Equal("LibreOffice", AppSettings.Load().LayoutEngine);
+            Capture(window, "libreoffice");
+
+            // Back to Word: the LibreOffice pages are not kept on screen under the Word label.
+            Invoke(window, "SetLayoutEngine", LayoutEngine.Word);
+            WaitUntil(() => Texts(referencePanel).Any(text => text.Contains("switched off")));
+            Assert.Null(Get(window, "_referenceExact"));
+            Assert.Equal("Word", AppSettings.Load().LayoutEngine);
+
+            // And LibreOffice again comes from the cache at once.
+            Invoke(window, "SetLayoutEngine", LayoutEngine.LibreOffice);
+            WaitUntil(() => Texts(referencePanel).Any(text => text.Contains("laid out by LibreOffice")), seconds: 5);
+        }
+        finally
+        {
+            window.Close();
+        }
+    }
+
+    /// <summary>Saves a picture of the window when DOCHECK_ENGINE_CAPTURE names a file prefix (for the documentation).</summary>
+    private static void Capture(Window window, string name)
+    {
+        if (Environment.GetEnvironmentVariable("DOCHECK_ENGINE_CAPTURE") is not { Length: > 0 } prefix)
+            return;
+        for (var pass = 0; pass < 4; pass++)
+        {
+            window.Measure(new Avalonia.Size(1464, 840));
+            window.Arrange(new Avalonia.Rect(0, 0, 1464, 840));
+            window.UpdateLayout();
+            Dispatcher.UIThread.RunJobs();
+        }
+        using var bitmap = new Avalonia.Media.Imaging.RenderTargetBitmap(new Avalonia.PixelSize(1464, 840), new Avalonia.Vector(96, 96));
+        bitmap.Render((Control)window.Content!);
+        bitmap.Save($"{prefix}-{name}.png");
+    }
+
+    private static List<string> Texts(Control panel) =>
+        panel.GetVisualDescendants().OfType<TextBlock>().Select(text => text.Text ?? "").ToList();
+
+    private static void WaitUntil(Func<bool> condition, int seconds = 120)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(seconds);
+        while (!condition())
+        {
+            Assert.True(DateTime.UtcNow < deadline, "Timed out waiting for the exact pages.");
+            Dispatcher.UIThread.RunJobs();
+            Thread.Sleep(20);
+        }
+    }
+
+    private static object? Get(object target, string name) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(target);
+    private static void Set(object target, string name, object? value) => target.GetType().GetField(name, BindingFlags.Instance | BindingFlags.NonPublic)!.SetValue(target, value);
+    private static object? Invoke(object target, string name, params object?[] arguments) =>
+        target.GetType().GetMethod(name, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public)!.Invoke(target, arguments);
 
     private const double CharacterWidth = 6;
 

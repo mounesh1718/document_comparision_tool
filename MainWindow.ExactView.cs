@@ -19,8 +19,11 @@ namespace DocumentChecker.Engine;
 public partial class MainWindow
 {
     private bool _exactMode;
+    // The program that lays out the real pages, chosen in Exact pages and remembered in the settings.
+    private LayoutEngine _layoutEngine = LayoutEngine.Word;
     private readonly string _workDirectory = Path.Combine(Path.GetTempPath(), "DocumentChecker", Guid.NewGuid().ToString("N"));
-    // Laid-out documents by file content (SHA-256), so switching views or re-comparing an unchanged file is instant.
+    // Laid-out documents by file content (SHA-256) and layout engine, so switching views, engines or re-comparing an
+    // unchanged file is instant.
     private readonly Dictionary<string, (ExactDocument? Document, string? Error)> _exactCache = [];
     private ExactDocument? _referenceExact;
     private ExactDocument? _currentExact;
@@ -37,6 +40,36 @@ public partial class MainWindow
 
     private void ExactView_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetExactMode(true);
 
+    private void WordEngine_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetLayoutEngine(LayoutEngine.Word);
+
+    private void LibreOfficeEngine_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) => SetLayoutEngine(LayoutEngine.LibreOffice);
+
+    /// <summary>
+    /// Lays the pages out again with the chosen program and marks the differences on the new pages. The choice is
+    /// remembered. Choosing the engine already shown only re-checks the buttons.
+    /// </summary>
+    internal void SetLayoutEngine(LayoutEngine engine)
+    {
+        var changed = engine != _layoutEngine;
+        _layoutEngine = engine;
+        ShowLayoutEngine();
+        if (!changed && _referenceExact is not null && _currentExact is not null)
+            return;
+        SaveSettings();
+        if (engine == LayoutEngine.Word)
+            PageLayoutConverter.RetryWord();   // for example Office has been activated since Word last failed
+        _referenceExact = _currentExact = null;
+        _exactRequest++;
+        if (_exactMode)
+            _ = ShowExactPagesAsync();
+    }
+
+    private void ShowLayoutEngine()
+    {
+        WordEngineButton.IsChecked = _layoutEngine == LayoutEngine.Word;
+        LibreOfficeEngineButton.IsChecked = _layoutEngine == LayoutEngine.LibreOffice;
+    }
+
     private void SetExactMode(bool exact)
     {
         ReadingViewButton.IsChecked = !exact;
@@ -44,6 +77,7 @@ public partial class MainWindow
         if (_exactMode == exact)
             return;
         _exactMode = exact;
+        EngineSwitch.IsVisible = exact;
         ReferencePageSurface.IsVisible = CurrentPageSurface.IsVisible = !exact;
         ReferenceExactPanel.IsVisible = CurrentExactPanel.IsVisible = exact;
         // Real pages can be zoomed wider than the pane; Reading view always wraps to the pane.
@@ -81,21 +115,22 @@ public partial class MainWindow
 
     /// <summary>
     /// Makes sure both compared documents are laid out as real pages (from the cache when a file is unchanged).
-    /// Reports progress and problems through <paramref name="report"/>. False when the pages are not available.
+    /// Reports progress and problems (with true) through <paramref name="report"/>. False when the pages are not available.
     /// </summary>
-    private async Task<bool> EnsureExactDocumentsAsync(Action<string> report)
+    private async Task<bool> EnsureExactDocumentsAsync(Action<string, bool> report)
     {
         if (_comparisonResult is not { IsSuccess: true, ReferenceDocument: { } referenceModel, CurrentDocument: { } currentModel } result ||
             _referencePath is not { } referencePath || _currentPath is not { } currentPath)
         {
-            report("Choose the two documents and click Compare to see their exact pages here.");
+            report("Choose the two documents and click Compare to see their exact pages here.", false);
             return false;
         }
         if (_referenceExact is not null && _currentExact is not null)
             return true;
 
         var request = ++_exactRequest;
-        report("Laying out the pages with Microsoft Word or LibreOffice… This takes a few seconds the first time.");
+        var engine = _layoutEngine;
+        report($"Laying out the pages with {PageLayoutConverter.NameOf(engine)}… This takes a few seconds the first time.", false);
         var layoutFolder = Path.Combine(_workDirectory, "layout");
         var (reference, current) = await Task.Run(() => (
             Load(result.ReferenceHash, referencePath, referenceModel),
@@ -104,7 +139,7 @@ public partial class MainWindow
             return _referenceExact is not null && _currentExact is not null;
         if (reference.Document is null || current.Document is null)
         {
-            report(reference.Error ?? current.Error ?? PageLayoutConverter.NoEngineMessage);
+            report(reference.Error ?? current.Error ?? PageLayoutConverter.NoEngineMessage, true);
             return false;
         }
         _referenceExact = reference.Document;
@@ -115,31 +150,57 @@ public partial class MainWindow
         {
             // The laid-out pages depend only on the file; the locator is rebuilt for this comparison's document,
             // which can differ (for example with headers and footers switched off).
+            var key = hash is null ? null : $"{hash}|{engine}";
             lock (_exactCache)
-                if (hash is not null && _exactCache.TryGetValue(hash, out var cached) && cached.Document is { } pages)
+                if (key is not null && _exactCache.TryGetValue(key, out var cached) && cached.Document is { } pages)
                     return (pages with { Locator = new PageLocator(model, pages.Pages) }, null);
-            var loaded = ExactDocument.Load(path, model, layoutFolder);
+            var loaded = ExactDocument.Load(path, model, layoutFolder, engine);
             lock (_exactCache)
-                if (hash is not null && loaded.Document is not null)
-                    _exactCache[hash] = loaded;
+                if (key is not null && loaded.Document is not null)
+                    _exactCache[key] = loaded;
             return loaded;
         }
     }
 
-    private void ShowExactMessage(string message)
+    /// <summary>
+    /// A message in place of the pages. When the chosen program could not lay them out, a button offers the other one.
+    /// </summary>
+    private void ShowExactMessage(string message, bool isProblem)
     {
         ClearExactPages();
-        foreach (var panel in new[] { ReferenceExactPanel, CurrentExactPanel })
+        var other = _layoutEngine == LayoutEngine.Word ? LayoutEngine.LibreOffice : LayoutEngine.Word;
+        foreach (var (panel, viewer) in new[] { (ReferenceExactPanel, ReferenceScrollViewer), (CurrentExactPanel, CurrentScrollViewer) })
+        {
+            // The pages can scroll sideways, so the message is kept to the pane's width to wrap.
+            var width = viewer.Viewport.Width > 0 ? viewer.Viewport.Width : viewer.Bounds.Width;
             panel.Children.Add(new TextBlock
             {
+                MaxWidth = Math.Max(240, width - 32),
+                HorizontalAlignment = HorizontalAlignment.Left,
                 Text = message,
-                Margin = new Thickness(16, 40),
+                Margin = new Thickness(16, 40, 16, 12),
                 FontSize = 14,
                 TextWrapping = TextWrapping.Wrap,
                 Foreground = new SolidColorBrush(Color.Parse("#475569"))
             });
+            if (isProblem && IsAvailable(other))
+            {
+                var button = new Button
+                {
+                    Content = $"Use {PageLayoutConverter.NameOf(other)} instead",
+                    HorizontalAlignment = HorizontalAlignment.Left,
+                    Margin = new Thickness(16, 0)
+                };
+                button.Classes.Add("small");
+                button.Click += (_, _) => SetLayoutEngine(other);
+                panel.Children.Add(button);
+            }
+        }
         UpdateExactNotes();
     }
+
+    private static bool IsAvailable(LayoutEngine engine) =>
+        engine == LayoutEngine.Word ? IsWordInstalled() : PageLayoutConverter.FindLibreOffice() is not null;
 
     private void ClearExactPages()
     {
@@ -171,6 +232,7 @@ public partial class MainWindow
         panel.Children.Add(new TextBlock
         {
             Text = $"{document.Pages.Count} page{(document.Pages.Count == 1 ? "" : "s")} · laid out by {document.Engine}" +
+                   (document.EngineNote is { } note ? $" ({note})" : "") +
                    (_comparisonResult?.UsedOptions.CompareHeadersAndFooters == false ? " · headers and footers are shown as printed but were not compared" : ""),
             TextWrapping = TextWrapping.Wrap,
             TextAlignment = TextAlignment.Center,
@@ -367,7 +429,7 @@ public partial class MainWindow
         bool ready;
         try
         {
-            ready = await EnsureExactDocumentsAsync(text => message = text);
+            ready = await EnsureExactDocumentsAsync((text, _) => message = text);
         }
         finally
         {

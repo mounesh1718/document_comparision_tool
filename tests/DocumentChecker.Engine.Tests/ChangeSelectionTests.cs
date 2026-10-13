@@ -21,6 +21,7 @@ public sealed class ChangeSelectionTests
     [Trait("TC", "TC-UI-02")]
     [Trait("TC", "TC-HIS-04")]
     [Trait("TC", "TC-OPT-04")]
+    [Trait("TC", "TC-EXV-05")]
     public void Clicking_a_table_value_or_image_region_focuses_its_exact_change_and_supports_reselection()
     {
         Exception? failure = null;
@@ -32,7 +33,7 @@ public sealed class ChangeSelectionTests
         if (OperatingSystem.IsWindows())
             thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
-        Assert.True(thread.Join(TimeSpan.FromSeconds(60)), "UI selection test timed out.");
+        Assert.True(thread.Join(TimeSpan.FromSeconds(240)), "UI selection test timed out.");
         if (failure is not null)
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
     }
@@ -44,6 +45,8 @@ public sealed class ChangeSelectionTests
         Directory.CreateDirectory(scratch);
         Environment.SetEnvironmentVariable("DOCHECK_SETTINGS_FILE", Path.Combine(scratch, "settings.json"));
         Environment.SetEnvironmentVariable("DOCHECK_HISTORY_FILE", Path.Combine(scratch, "history.jsonl"));
+        // Tests never open Microsoft Word on the tester's computer.
+        Environment.SetEnvironmentVariable("DOCHECK_LAYOUT_ENGINE", "libreoffice");
         // Windows uses the real desktop platform. Elsewhere the window is drawn off screen by the headless platform
         // with the same Skia renderer, because macOS only allows windows on the process's main thread.
         var builder = AppBuilder.Configure<App>();
@@ -240,6 +243,8 @@ public sealed class ChangeSelectionTests
             PageCompareWindowTests.Verify();
             HistoryTests.VerifyWindow();
             ComparisonOptionsTests.VerifyCheckBox();
+            if (ExactView.PageLayoutConverter.FindLibreOffice() is not null)
+                ExactViewTests.VerifyEngineSwitch();
         }
         finally { window.Close(); }
     }

@@ -150,6 +150,13 @@
             <TextBlock Classes="legend" Foreground="#94A3B8" Text="·  Click any highlight to see it explained" />
           </WrapPanel>
           <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+            <StackPanel x:Name="EngineSwitch" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,14,0" IsVisible="False">
+              <TextBlock Classes="legend" Text="Laid out by" Margin="0,0,6,0" />
+              <ToggleButton x:Name="WordEngineButton" Classes="segment left" Click="WordEngine_Click"
+                            ToolTip.Tip="Lay the pages out with Microsoft Word: page breaks and spacing exactly as Word prints them.">Microsoft Word</ToggleButton>
+              <ToggleButton x:Name="LibreOfficeEngineButton" Classes="segment right" Click="LibreOfficeEngine_Click"
+                            ToolTip.Tip="Lay the pages out with LibreOffice (free). Very close to Word; page breaks can occasionally differ.">LibreOffice</ToggleButton>
+            </StackPanel>
             <ToggleButton x:Name="ReadingViewButton" Classes="segment left" IsChecked="True" Click="ReadingView_Click"
                           ToolTip.Tip="Reading view: the text of both documents side by side, kept level line by line. Fast; the layout is simplified.">Reading view</ToggleButton>
             <ToggleButton x:Name="ExactViewButton" Classes="segment right" Click="ExactView_Click"

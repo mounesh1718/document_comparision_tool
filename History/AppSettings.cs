@@ -7,7 +7,7 @@ namespace DocumentChecker.Engine.History;
 /// The reviewer's choices that are kept between sessions, in settings.json next to the history
 /// (in the user's application-data folder on this computer).
 /// </summary>
-public sealed record AppSettings(bool CompareHeadersAndFooters = true)
+public sealed record AppSettings(bool CompareHeadersAndFooters = true, string LayoutEngine = "Word")
 {
     private static readonly JsonSerializerOptions Json = new() { WriteIndented = true };
 
