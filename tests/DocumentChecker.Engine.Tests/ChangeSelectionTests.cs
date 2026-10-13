@@ -22,6 +22,8 @@ public sealed class ChangeSelectionTests
     [Trait("TC", "TC-HIS-04")]
     [Trait("TC", "TC-OPT-04")]
     [Trait("TC", "TC-EXV-05")]
+    [Trait("TC", "TC-SRC-08")]
+    [Trait("TC", "TC-SRC-13")]
     public void Clicking_a_table_value_or_image_region_focuses_its_exact_change_and_supports_reselection()
     {
         Exception? failure = null;
@@ -243,6 +245,8 @@ public sealed class ChangeSelectionTests
             PageCompareWindowTests.Verify();
             HistoryTests.VerifyWindow();
             ComparisonOptionsTests.VerifyCheckBox();
+            SourceLibraryTests.VerifyWindow();
+            SourceCheckTests.VerifyWindow();
             if (ExactView.PageLayoutConverter.FindLibreOffice() is not null)
                 ExactViewTests.VerifyEngineSwitch();
         }

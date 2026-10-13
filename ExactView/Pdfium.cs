@@ -18,6 +18,9 @@ public sealed record PdfPage(
     IReadOnlyList<PdfCharacter> Characters,
     IReadOnlyList<PageRect> Images);
 
+/// <summary>The text of one page without its picture, for reading source PDFs quickly.</summary>
+public sealed record PdfTextPage(double Width, double Height, IReadOnlyList<PdfCharacter> Characters, int PictureCount);
+
 /// <summary>
 /// Reads PDF pages with PDFium (the PDF engine used by Chrome, from the bblanchon.PDFium packages): draws each page
 /// and lists every character and picture with its position. PDFium is not thread-safe, so all calls are serialized.
@@ -32,7 +35,42 @@ public static class Pdfium
     /// Reads every page. <paramref name="scale"/> is pixels per point for the page pictures: 2 (144 dpi) stays sharp when
     /// a page is zoomed to about twice the width of a half-screen pane.
     /// </summary>
-    public static IReadOnlyList<PdfPage> ReadPages(byte[] pdf, double scale = 2)
+    public static IReadOnlyList<PdfPage> ReadPages(byte[] pdf, double scale = 2) => WithDocument(pdf, document =>
+    {
+        var pages = new List<PdfPage>();
+        var count = FPDF_GetPageCount(document);
+        for (var index = 0; index < count; index++)
+            pages.Add(ReadPage(document, index, scale));
+        return pages;
+    });
+
+    /// <summary>One page with its picture, for example to read a scanned page with text recognition.</summary>
+    public static PdfPage ReadPage(byte[] pdf, int index, double scale = 2) => WithDocument(pdf, document => ReadPage(document, index, scale));
+
+    /// <summary>The characters of every page, without drawing the pages (much faster than <see cref="ReadPages"/>).</summary>
+    public static IReadOnlyList<PdfTextPage> ReadText(byte[] pdf) => WithDocument(pdf, document =>
+    {
+        var pages = new List<PdfTextPage>();
+        var count = FPDF_GetPageCount(document);
+        for (var index = 0; index < count; index++)
+        {
+            var page = FPDF_LoadPage(document, index);
+            if (page == IntPtr.Zero)
+                throw new InvalidDataException($"Page {index + 1} of the PDF could not be read.");
+            try
+            {
+                double height = FPDF_GetPageHeightF(page);
+                pages.Add(new PdfTextPage(FPDF_GetPageWidthF(page), height, Characters(page, height), Pictures(page, index, height).Count));
+            }
+            finally
+            {
+                FPDF_ClosePage(page);
+            }
+        }
+        return pages;
+    });
+
+    private static T WithDocument<T>(byte[] pdf, Func<IntPtr, T> read)
     {
         lock (Gate)
         {
@@ -48,12 +86,10 @@ public static class Pdfium
             try
             {
                 if (document == IntPtr.Zero)
-                    throw new InvalidDataException("The laid-out PDF could not be opened.");
-                var pages = new List<PdfPage>();
-                var count = FPDF_GetPageCount(document);
-                for (var index = 0; index < count; index++)
-                    pages.Add(ReadPage(document, index, scale));
-                return pages;
+                    throw new InvalidDataException(FPDF_GetLastError() == PasswordError
+                        ? "The PDF is password-protected."
+                        : "The PDF could not be opened: it is damaged or not a PDF.");
+                return read(document);
             }
             finally
             {
@@ -68,7 +104,7 @@ public static class Pdfium
     {
         var page = FPDF_LoadPage(document, index);
         if (page == IntPtr.Zero)
-            throw new InvalidDataException($"Page {index + 1} of the laid-out PDF could not be read.");
+            throw new InvalidDataException($"Page {index + 1} of the PDF could not be read.");
         try
         {
             double width = FPDF_GetPageWidthF(page);
@@ -147,10 +183,12 @@ public static class Pdfium
 
     private const int RenderAnnotations = 0x01;
     private const int ImageObject = 3;
+    private const uint PasswordError = 4;
 
     [DllImport(Library)] private static extern void FPDF_InitLibrary();
     [DllImport(Library)] private static extern IntPtr FPDF_LoadMemDocument(IntPtr data, int size, [MarshalAs(UnmanagedType.LPStr)] string? password);
     [DllImport(Library)] private static extern void FPDF_CloseDocument(IntPtr document);
+    [DllImport(Library)] private static extern uint FPDF_GetLastError();
     [DllImport(Library)] private static extern int FPDF_GetPageCount(IntPtr document);
     [DllImport(Library)] private static extern IntPtr FPDF_LoadPage(IntPtr document, int index);
     [DllImport(Library)] private static extern void FPDF_ClosePage(IntPtr page);

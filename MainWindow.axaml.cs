@@ -210,8 +210,11 @@ public partial class MainWindow : Window
     private bool _loadingSettings;
 
     /// <summary>Remembers the reviewer's choices (headers and footers, layout engine) for the next session.</summary>
-    private void SaveSettings() =>
-        new DocumentChecker.Engine.History.AppSettings(CurrentOptions().CompareHeadersAndFooters, _layoutEngine.ToString()).Save();
+    private void SaveSettings() => (DocumentChecker.Engine.History.AppSettings.Load() with
+    {
+        CompareHeadersAndFooters = CurrentOptions().CompareHeadersAndFooters,
+        LayoutEngine = _layoutEngine.ToString()
+    }).Save();
 
     /// <summary>What the next comparison includes, as chosen under the Compare button.</summary>
     private ComparisonOptions CurrentOptions() => new(CompareHeadersAndFooters: HeadersFootersCheckBox.IsChecked != false);
@@ -232,6 +235,10 @@ public partial class MainWindow : Window
 
     private async void History_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
         await new HistoryWindow(_history, CompareAgain).ShowDialog(this);
+
+    /// <summary>Source check: the document to check (the Current file, if chosen) against a source folder of PDFs.</summary>
+    private async void SourceCheck_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e) =>
+        await new SourceCheckWindow(_currentPath).ShowDialog(this);
 
     /// <summary>Loads both files of a saved comparison and compares them again.</summary>
     private void CompareAgain(DocumentChecker.Engine.History.HistoryEntry entry)

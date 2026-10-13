@@ -8,6 +8,7 @@ A desktop tool that compares a **Current** Word document (`.docx`) against an ap
 | [docs/TEST_CASES.md](docs/TEST_CASES.md) | Every automated and manual test case |
 | [COMPARISON_COVERAGE.md](COMPARISON_COVERAGE.md) | What is checked, and what to check yourself |
 | [samples/README.md](samples/README.md) | Two sample documents and the expected result |
+| [docs/SOURCE_CHECK_PLAN.md](docs/SOURCE_CHECK_PLAN.md) | Source check: how answers are checked against source PDFs |
 | [docs/screenshots](docs/screenshots/) | What the screens look like |
 
 ## Run it
@@ -21,6 +22,12 @@ A desktop tool that compares a **Current** Word document (`.docx`) against an ap
 
 3. Choose the approved document in **① Approved (Reference)**, the document to check in **② To check (Current)**, and click **Compare**. To try it, use the two files in `samples/`.
 4. Click **Exact pages** to see the real pages with the differences marked. **Laid out by: Microsoft Word | LibreOffice** chooses the program that lays them out; switching lays the pages out again with that program.
+5. To check a question-and-answer document (for example a QOS) against its source PDFs, click **Source check**:
+   1. **Source folders…** → **New source folder** → **Upload folder…** with your source PDFs (the same folder structure is kept and every copy is checked against the original). Close.
+   2. Choose the document (② — the Current file is filled in) and the source folder (③), and click **Proceed checking**.
+   3. Review the facts: ✗ Different in source, ⚠ Not found, ? Check yourself, ✓ Matches. Each shows the source PDF page with the evidence boxed. **Export results (CSV)** saves them for Excel.
+
+   To try it, use `samples/source-check/QOS-Sample.docx` and upload the folder `samples/source-check/m3`.
 
 Run the tests:
 
@@ -28,7 +35,7 @@ Run the tests:
 dotnet test tests/DocumentChecker.Engine.Tests/DocumentChecker.Engine.Tests.csproj
 ```
 
-The expected result on Windows or macOS with LibreOffice installed is **101 passed, 0 failed, 6 skipped**. The 6 skipped tests describe known gaps (see [docs/TEST_CASES.md](docs/TEST_CASES.md)).
+The expected result on Windows or macOS with LibreOffice installed is **109 passed, 0 failed, 6 skipped**. The 6 skipped tests describe known gaps (see [docs/TEST_CASES.md](docs/TEST_CASES.md)).
 
 ## SDK and platform
 
@@ -86,5 +93,5 @@ These are not packages. The tool uses them when they are installed and keeps wor
 
 - **Security:** SixLabors.ImageSharp 2.1.13 has 3 high and 2 moderate known vulnerabilities (the build lists them as warnings NU1902/NU1903). It reads every image in the documents, so it should be upgraded. ImageSharp **3.x** uses the Six Labors Split License, which needs a paid licence for larger companies, so check first whether a patched **2.1.x** release exists. List vulnerable packages with `dotnet list package --vulnerable`.
 - **Licences:** apart from the ImageSharp 3.x caveat, all packages are permissively licensed (MIT or Apache-2.0). LibreOffice is free (MPL-2.0). Word, Windows OCR and Apple Vision come with Office or the operating system.
-- **Local data:** documents are only read. Exact pages and Open in Word work on temporary copies, which are deleted when the app closes. The comparison history and settings (`settings.json`: whether headers and footers are compared, and which program lays out Exact pages) are stored for each user on this computer (macOS: `~/Library/Application Support/DocumentChecker/history.jsonl`; Windows: `%LOCALAPPDATA%\DocumentChecker\history.jsonl`) and can be cleared in the History window.
+- **Local data:** documents are only read. Exact pages and Open in Word work on temporary copies, which are deleted when the app closes. The comparison history and settings (`settings.json`: whether headers and footers are compared, and which program lays out Exact pages) are stored for each user on this computer (macOS: `~/Library/Application Support/DocumentChecker/history.jsonl`; Windows: `%LOCALAPPDATA%\DocumentChecker\history.jsonl`) and can be cleared in the History window. Source folders (copies of the source PDFs and their page text) are kept next to them in `DocumentChecker/Sources/` and can be deleted in the Source folders window.
 - **Confidential documents:** `.gitignore` keeps every `.docx` out of git, except the synthetic files in `samples/`.

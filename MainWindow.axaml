@@ -117,8 +117,12 @@
           </Grid>
         </Border>
 
-        <Button x:Name="HistoryButton" Grid.Column="3" Click="History_Click" Padding="14,10"
-                ToolTip.Tip="Every comparison made on this computer: when, by whom, which files and what was found. Compare again or export to CSV.">History</Button>
+        <StackPanel Grid.Column="3" Spacing="6" VerticalAlignment="Center">
+          <Button x:Name="HistoryButton" Click="History_Click" Padding="14,5" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  ToolTip.Tip="Every comparison made on this computer: when, by whom, which files and what was found. Compare again or export to CSV.">History</Button>
+          <Button x:Name="SourceCheckButton" Click="SourceCheck_Click" Padding="14,5" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                  ToolTip.Tip="Source check: check every answer of the document against the PDFs of a source folder. Upload source folders there too.">Source check</Button>
+        </StackPanel>
         <StackPanel Grid.Column="4" Spacing="4" VerticalAlignment="Center">
           <Button x:Name="CompareButton" Classes="primary" Click="Compare_Click" IsEnabled="False"
                   HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">Compare</Button>
